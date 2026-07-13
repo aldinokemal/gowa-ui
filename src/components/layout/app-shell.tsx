@@ -1,6 +1,7 @@
 import {
   LayoutDashboard,
   ListChecks,
+  Loader2,
   MessagesSquare,
   Send,
   Settings,
@@ -8,11 +9,15 @@ import {
   Users,
   Wrench,
 } from 'lucide-react'
-import { NavLink, Outlet } from 'react-router-dom'
+import { Navigate, NavLink, Outlet } from 'react-router-dom'
+import { DeviceSwitcher } from '@/components/layout/device-switcher'
 import { Logo } from '@/components/layout/logo'
 import { ThemeToggle } from '@/components/layout/theme-toggle'
+import { WsBadge } from '@/components/layout/ws-badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { PasskeyDialog } from '@/features/session/passkey-dialog'
 import { cn } from '@/lib/utils'
+import { useConnection } from '@/stores/connection'
 
 const navItems = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard },
@@ -26,9 +31,23 @@ const navItems = [
 ]
 
 export function AppShell() {
+  const status = useConnection((state) => state.status)
+
+  if (status === 'booting') {
+    return (
+      <div className="flex min-h-svh items-center justify-center">
+        <Loader2 className="size-6 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
+
+  if (status !== 'connected') {
+    return <Navigate to="/connect" replace />
+  }
+
   return (
     <div className="flex min-h-svh">
-      <aside className="bg-sidebar text-sidebar-foreground hidden w-60 shrink-0 flex-col border-r md:flex">
+      <aside className="hidden w-60 shrink-0 flex-col border-r bg-sidebar text-sidebar-foreground md:flex">
         <div className="flex h-14 items-center border-b px-4">
           <Logo />
         </div>
@@ -61,6 +80,8 @@ export function AppShell() {
             <Logo />
           </div>
           <div className="ml-auto flex items-center gap-2">
+            <DeviceSwitcher />
+            <WsBadge />
             <ThemeToggle />
           </div>
         </header>
@@ -68,6 +89,7 @@ export function AppShell() {
           <Outlet />
         </main>
       </div>
+      <PasskeyDialog />
     </div>
   )
 }
