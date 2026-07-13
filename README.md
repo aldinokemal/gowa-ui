@@ -61,7 +61,7 @@ CI asserts `dist/` contains exactly one file.
 ## Roadmap
 
 - [x] **M0** — scaffold: single-file build, app shell, dark mode, CI/release workflows
-- [ ] **M1** — connect screen, device manager, QR/pair-code login, logout/reconnect, WebSocket events
+- [x] **M1** — connect screen, device manager, QR/pair-code login, logout/reconnect, WebSocket events
 - [ ] **M2** — send suite (message, image, file, video, sticker, contact, location, audio, poll, link, presence)
 - [ ] **M3** — message actions (delete, revoke, react, update, read, forward) + call reject
 - [ ] **M4** — groups (create, join, info, participants, settings, invite links)
