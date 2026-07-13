@@ -1,0 +1,62 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run build
+      - name: Assert single-file build
+        run: |
+          test -f dist/index.html
+          [ "$(ls dist | wc -l)" -eq 1 ]
+      - name: Package release asset
+        run: |
+          cp dist/index.html dist/gowa-ui.html
+          cd dist && shasum -a 256 gowa-ui.html > gowa-ui.html.sha256
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/gowa-ui.html
+            dist/gowa-ui.html.sha256
+          generate_release_notes: true
+
+  pages:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: release
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+      - id: deployment
+        uses: actions/deploy-pages@v4
