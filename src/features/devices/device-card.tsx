@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { KeyRound, MoreVertical, QrCode, RefreshCw, Trash2, Unplug } from 'lucide-react'
+import { KeyRound, MoreVertical, QrCode, RefreshCw, Trash2, Unplug, Webhook } from 'lucide-react'
 import { toast } from 'sonner'
 import { logoutDevice, reconnectDevice, removeDevice } from '@/api/devices'
 import {
@@ -23,6 +23,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { StateBadge } from '@/features/devices/state-badge'
+import { DeviceWebhookDialog } from '@/features/devices/webhook-dialog'
 import { toApiError } from '@/lib/api-error'
 import { formatDate } from '@/lib/format'
 import { cn } from '@/lib/utils'
@@ -42,6 +43,7 @@ export function DeviceCard({
   const selectedDeviceId = useDeviceStore((state) => state.selectedDeviceId)
   const selectDevice = useDeviceStore((state) => state.selectDevice)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [webhookOpen, setWebhookOpen] = useState(false)
   const selected = selectedDeviceId === device.id
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['devices'] })
@@ -124,6 +126,9 @@ export function DeviceCard({
               <DropdownMenuItem onClick={() => logout.mutate()}>
                 <Unplug className="size-4" /> Logout
               </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setWebhookOpen(true)}>
+                <Webhook className="size-4" /> Webhook
+              </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem variant="destructive" onClick={() => setConfirmDelete(true)}>
                 <Trash2 className="size-4" /> Delete
@@ -132,6 +137,8 @@ export function DeviceCard({
           </DropdownMenu>
         </div>
       </CardFooter>
+
+      <DeviceWebhookDialog device={device} open={webhookOpen} onOpenChange={setWebhookOpen} />
 
       <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
         <AlertDialogContent>

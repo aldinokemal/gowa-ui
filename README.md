@@ -68,5 +68,6 @@ CI asserts `dist/` contains exactly one file.
 - [x] **M5** — account (avatar, push name, privacy, contacts) + newsletters
 - [x] **M6** — chats (list, message viewer, composer, pin, archive, disappearing timers)
 - [x] **M7** — parity audit vs the embedded dashboard → v1.0.0
+- [x] **v1.1.0** — per-device webhook editor (URL, secret, events, TLS verify) on the device card
 
-Post-v1 backlog: per-device webhook editor (webhooks are create-time only for now), Chatwoot config module, full WebAuthn passkey flow.
+Post-v1 backlog: Chatwoot config module, full WebAuthn passkey flow.
