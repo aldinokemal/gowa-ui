@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { History } from 'lucide-react'
 import { IdText } from '@/components/shared/id-text'
 import { Button } from '@/components/ui/button'
@@ -21,15 +22,22 @@ import { composeJid, isStatus, recipientOptions, type RecipientType } from '@/li
 import { useRecipientStore } from '@/stores/recipient'
 
 /**
- * The Messaging workspace's shared recipient: entered once here, consumed by
- * every compose/act form via useRecipientJid().
+ * The shared recipient bar: entered once here, consumed by every form that
+ * calls useRecipientJid(). Used by the Messaging and Account workspaces.
  */
-export function RecipientBar() {
+export function RecipientBar({ showStatus = true }: { showStatus?: boolean }) {
   const recipient = useRecipientStore((state) => state.recipient)
   const recents = useRecipientStore((state) => state.recents)
   const setRecipient = useRecipientStore((state) => state.setRecipient)
   const pushRecent = useRecipientStore((state) => state.pushRecent)
+  const options = recipientOptions.filter((option) => showStatus || option.value !== 'status')
   const jid = composeJid(recipient.phone, recipient.type)
+
+  useEffect(() => {
+    if (!showStatus && isStatus(recipient.type)) {
+      setRecipient({ ...recipient, type: 'user' })
+    }
+  }, [showStatus, recipient, setRecipient])
 
   return (
     <Card>
@@ -44,7 +52,7 @@ export function RecipientBar() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {recipientOptions.map((option) => (
+              {options.map((option) => (
                 <SelectItem key={option.value} value={option.value}>
                   {option.label}
                 </SelectItem>

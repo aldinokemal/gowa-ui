@@ -1,24 +1,23 @@
 import { useState, type FormEvent } from 'react'
 import { Loader2 } from 'lucide-react'
 import { getUserAvatar } from '@/api/user'
-import { RecipientField, type RecipientValue } from '@/components/shared/recipient-field'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import { useActionMutation } from '@/hooks/use-action-mutation'
-import { composeJid } from '@/lib/jid'
+import { useRecipientJid, useRecipientStore } from '@/stores/recipient'
 
 export function AvatarForm() {
-  const [recipient, setRecipient] = useState<RecipientValue>({ phone: '', type: 'user' })
+  const jid = useRecipientJid()
+  const isGroup = useRecipientStore((state) => state.recipient.type === 'group')
   const [isPreview, setIsPreview] = useState(false)
   const [isCommunity, setIsCommunity] = useState(false)
-  const isGroup = recipient.type === 'group'
 
   const mutation = useActionMutation(getUserAvatar, { successMessage: 'Avatar fetched' })
 
   const onSubmit = (event: FormEvent) => {
     event.preventDefault()
     mutation.mutate({
-      phone: composeJid(recipient.phone, recipient.type),
+      phone: jid,
       is_preview: isPreview,
       is_community: isGroup && isCommunity,
     })
@@ -26,7 +25,6 @@ export function AvatarForm() {
 
   return (
     <form className="flex flex-col gap-4" onSubmit={onSubmit}>
-      <RecipientField value={recipient} onChange={setRecipient} />
       <label className="flex items-center gap-2 text-sm">
         <Switch checked={isPreview} onCheckedChange={setIsPreview} />
         Preview (smaller image)
@@ -37,11 +35,7 @@ export function AvatarForm() {
           Community group
         </label>
       )}
-      <Button
-        type="submit"
-        disabled={mutation.isPending || !recipient.phone.trim()}
-        className="self-start"
-      >
+      <Button type="submit" disabled={mutation.isPending || !jid} className="self-start">
         {mutation.isPending && <Loader2 className="size-4 animate-spin" />}
         Fetch avatar
       </Button>
