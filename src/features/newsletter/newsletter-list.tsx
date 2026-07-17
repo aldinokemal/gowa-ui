@@ -2,6 +2,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Loader2 } from 'lucide-react'
 import { unfollowNewsletter } from '@/api/newsletter'
 import { listNewsletters } from '@/api/user'
+import { IdText } from '@/components/shared/id-text'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useActionMutation } from '@/hooks/use-action-mutation'
@@ -39,6 +40,7 @@ export function NewsletterList() {
             <p className="truncate font-medium">
               {item.thread_metadata?.name?.text || item.id.split('@')[0]}
             </p>
+            <IdText value={item.id.split('@')[0]} />
             <p className="text-muted-foreground truncate text-xs">
               {item.viewer_metadata?.role ?? 'guest'}
               {' · '}
