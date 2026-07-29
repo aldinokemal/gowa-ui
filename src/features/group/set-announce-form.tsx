@@ -6,8 +6,14 @@ import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import { useActionMutation } from '@/hooks/use-action-mutation'
 
-export function SetAnnounceForm({ groupJid }: { groupJid: string }) {
-  const [announce, setAnnounce] = useState(false)
+export function SetAnnounceForm({
+  groupJid,
+  initialAnnounce = false,
+}: {
+  groupJid: string
+  initialAnnounce?: boolean
+}) {
+  const [announce, setAnnounce] = useState(initialAnnounce)
 
   const mutation = useActionMutation(setGroupAnnounce, { successMessage: 'Announce mode updated' })
 

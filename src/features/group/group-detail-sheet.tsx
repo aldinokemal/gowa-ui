@@ -73,11 +73,11 @@ export function GroupDetailSheet({
 
               <TabsContent value="settings" className="flex flex-col gap-6 pt-4">
                 <SettingsSection title="Name">
-                  <SetNameForm groupJid={groupJid} />
+                  <SetNameForm groupJid={groupJid} initialName={group.Name} />
                 </SettingsSection>
                 <Separator />
                 <SettingsSection title="Topic">
-                  <SetTopicForm groupJid={groupJid} />
+                  <SetTopicForm groupJid={groupJid} initialTopic={group.Topic} />
                 </SettingsSection>
                 <Separator />
                 <SettingsSection title="Photo">
@@ -86,8 +86,8 @@ export function GroupDetailSheet({
                 <Separator />
                 <SettingsSection title="Permissions">
                   <div className="flex flex-col gap-6">
-                    <SetAnnounceForm groupJid={groupJid} />
-                    <SetLockedForm groupJid={groupJid} />
+                    <SetAnnounceForm groupJid={groupJid} initialAnnounce={group.IsAnnounce} />
+                    <SetLockedForm groupJid={groupJid} initialLocked={group.IsLocked} />
                   </div>
                 </SettingsSection>
               </TabsContent>

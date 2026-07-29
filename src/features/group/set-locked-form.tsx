@@ -6,8 +6,14 @@ import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import { useActionMutation } from '@/hooks/use-action-mutation'
 
-export function SetLockedForm({ groupJid }: { groupJid: string }) {
-  const [locked, setLocked] = useState(false)
+export function SetLockedForm({
+  groupJid,
+  initialLocked = false,
+}: {
+  groupJid: string
+  initialLocked?: boolean
+}) {
+  const [locked, setLocked] = useState(initialLocked)
 
   const mutation = useActionMutation(setGroupLocked, { successMessage: 'Group lock updated' })
 

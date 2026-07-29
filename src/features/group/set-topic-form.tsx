@@ -7,8 +7,14 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { useActionMutation } from '@/hooks/use-action-mutation'
 
-export function SetTopicForm({ groupJid }: { groupJid: string }) {
-  const [topic, setTopic] = useState('')
+export function SetTopicForm({
+  groupJid,
+  initialTopic = '',
+}: {
+  groupJid: string
+  initialTopic?: string
+}) {
+  const [topic, setTopic] = useState(initialTopic)
 
   const mutation = useActionMutation(setGroupTopic, { successMessage: 'Group topic updated' })
 

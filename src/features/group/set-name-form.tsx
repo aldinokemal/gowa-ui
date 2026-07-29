@@ -8,9 +8,15 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useActionMutation } from '@/hooks/use-action-mutation'
 
-export function SetNameForm({ groupJid }: { groupJid: string }) {
+export function SetNameForm({
+  groupJid,
+  initialName = '',
+}: {
+  groupJid: string
+  initialName?: string
+}) {
   const queryClient = useQueryClient()
-  const [name, setName] = useState('')
+  const [name, setName] = useState(initialName)
 
   const mutation = useActionMutation(setGroupName, {
     successMessage: 'Group name updated',
