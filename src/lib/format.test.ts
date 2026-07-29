@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatBytes, isZeroTime } from './format'
+import { formatBytes, formatDay, isZeroTime } from './format'
 
 describe('isZeroTime', () => {
   it('treats Go zero time, epoch 0, empty, and garbage as zero', () => {
@@ -12,6 +12,16 @@ describe('isZeroTime', () => {
 
   it('accepts real timestamps', () => {
     expect(isZeroTime('2026-07-14T06:00:00Z')).toBe(false)
+  })
+})
+
+describe('formatDay', () => {
+  it('passes unparseable input through untouched', () => {
+    expect(formatDay('not-a-date')).toBe('not-a-date')
+  })
+
+  it('drops the time of day', () => {
+    expect(formatDay('2026-07-14T06:00:00Z')).not.toContain(':')
   })
 })
 

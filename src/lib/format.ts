@@ -26,3 +26,11 @@ export function formatDate(iso: string): string {
   const date = new Date(iso)
   return Number.isNaN(date.getTime()) ? iso : dateFormat.format(date)
 }
+
+const dayFormat = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' })
+
+/** Calendar date only, for metadata where the time of day adds nothing. */
+export function formatDay(iso: string): string {
+  const date = new Date(iso)
+  return Number.isNaN(date.getTime()) ? iso : dayFormat.format(date)
+}

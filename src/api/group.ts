@@ -2,9 +2,9 @@ import type { ResponseData } from '@/api/types'
 import { envelope, http, results } from '@/lib/http'
 
 /**
- * `/user/my/groups` returns whatsmeow `types.GroupInfo`, serialized with Go
- * field names (PascalCase, no json tags) — unlike the `/group/*` endpoints
- * below, which use the snake_case domain structs.
+ * `/user/my/groups` and `/group/info` return whatsmeow `types.GroupInfo`,
+ * serialized with Go field names (PascalCase, no json tags) — unlike the other
+ * `/group/*` endpoints below, which use the snake_case domain structs.
  */
 export interface MyGroupParticipant {
   JID: string
@@ -26,6 +26,24 @@ export interface MyGroup {
   IsLocked?: boolean
   IsAnnounce?: boolean
   IsEphemeral?: boolean
+}
+
+/** The full `types.GroupInfo`: everything `/user/my/groups` returns, plus the rest. */
+export interface GroupInfo extends MyGroup {
+  OwnerPN?: string
+  NameSetAt?: string
+  TopicSetAt?: string
+  TopicDeleted?: boolean
+  DisappearingTimer?: number
+  IsIncognito?: boolean
+  IsParent?: boolean
+  LinkedParentJID?: string
+  IsDefaultSubGroup?: boolean
+  IsJoinApprovalRequired?: boolean
+  AddressingMode?: string
+  CreatorCountryCode?: string
+  MemberAddMode?: string
+  Suspended?: boolean
 }
 
 export interface GroupIdResult {
@@ -107,7 +125,7 @@ export async function leaveGroup(payload: { group_id: string }): Promise<void> {
   await http.post('/group/leave', payload)
 }
 
-export function getGroupInfo(payload: { group_id: string }): Promise<unknown> {
+export function getGroupInfo(payload: { group_id: string }): Promise<GroupInfo> {
   return results(http.get('/group/info', { params: payload }))
 }
 
