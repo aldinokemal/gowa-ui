@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { MessagesSquare } from 'lucide-react'
 import { ChatList } from '@/features/chat/chat-list'
 import { MessageView } from '@/features/chat/message-view'
@@ -10,6 +10,13 @@ import type { ChatInfo } from '@/api/chat'
 export default function ChatsPage() {
   const device = useSelectedDevice()
   const [selected, setSelected] = useState<ChatInfo | null>(null)
+  const messagePane = useRef<HTMLDivElement>(null)
+
+  // On stacked layouts the message pane sits below the fold, so bring it into view.
+  const handleSelect = (chat: ChatInfo) => {
+    setSelected(chat)
+    messagePane.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+  }
 
   if (!device) {
     return (
@@ -21,13 +28,16 @@ export default function ChatsPage() {
   }
 
   return (
-    <div className="flex h-[calc(100svh-8.5rem)] flex-col gap-4">
+    <div className="flex flex-col gap-4 lg:h-[calc(100svh-8.5rem)]">
       <PageHeader title="Chats" description="Stored conversations for this device." />
-      <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[320px_1fr]">
-        <Card className="min-h-0 overflow-hidden p-3">
-          <ChatList selectedJid={selected?.jid ?? null} onSelect={setSelected} />
+      <div className="grid gap-4 lg:min-h-0 lg:flex-1 lg:grid-cols-[320px_1fr]">
+        <Card className="h-[24rem] overflow-hidden p-3 lg:h-auto lg:min-h-0">
+          <ChatList selectedJid={selected?.jid ?? null} onSelect={handleSelect} />
         </Card>
-        <Card className="min-h-0 overflow-hidden p-3">
+        <Card
+          ref={messagePane}
+          className="h-[calc(100svh-9rem)] min-h-[26rem] overflow-hidden p-3 lg:h-auto lg:min-h-0"
+        >
           {selected ? (
             <MessageView chat={selected} />
           ) : (
