@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useLayoutEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Loader2, Send } from 'lucide-react'
 import { getChatMessages, type ChatInfo, type MessageInfo } from '@/api/chat'
@@ -14,6 +14,12 @@ import { formatDate } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 const PAGE_SIZE = 30
+
+function sortMessagesChronologically(messages: MessageInfo[]): MessageInfo[] {
+  return [...messages].sort((left, right) => {
+    return new Date(left.timestamp).getTime() - new Date(right.timestamp).getTime()
+  })
+}
 
 function dayKey(timestamp: string): string {
   return new Date(timestamp).toDateString()
@@ -47,6 +53,7 @@ function MessageBubble({ message }: { message: MessageInfo }) {
 
 export function MessageView({ chat }: { chat: ChatInfo }) {
   const queryClient = useQueryClient()
+  const messageList = useRef<HTMLDivElement>(null)
   const [search, setSearch] = useState('')
   const [mediaOnly, setMediaOnly] = useState(false)
   const [offset, setOffset] = useState(0)
@@ -64,8 +71,18 @@ export function MessageView({ chat }: { chat: ChatInfo }) {
     placeholderData: keepPreviousData,
   })
 
-  const messages = query.data?.data ?? []
+  const messages = useMemo(
+    () => sortMessagesChronologically(query.data?.data ?? []),
+    [query.data?.data],
+  )
   const total = query.data?.pagination.total ?? 0
+
+  useLayoutEffect(() => {
+    const viewport = messageList.current?.querySelector<HTMLElement>(
+      '[data-slot="scroll-area-viewport"]',
+    )
+    if (viewport) viewport.scrollTop = viewport.scrollHeight
+  }, [chat.jid, messages])
 
   const sendMutation = useActionMutation(
     (message: string) => sendText({ phone: chat.jid, message }),
@@ -115,45 +132,47 @@ export function MessageView({ chat }: { chat: ChatInfo }) {
         </label>
       </div>
 
-      <ScrollArea className="bg-muted/40 min-h-0 flex-1 rounded-lg border p-3">
-        {query.isLoading ? (
-          <div className="flex justify-center p-6">
-            <Loader2 className="text-muted-foreground size-5 animate-spin" />
-          </div>
-        ) : messages.length === 0 ? (
-          <div className="text-muted-foreground flex flex-col gap-1 p-6 text-center text-sm">
-            <p>No messages stored for this chat yet.</p>
-            <p className="text-xs">
-              Messages appear here as they are sent or received, and as WhatsApp history sync
-              batches are processed after pairing. Contacts synced from your address book start
-              without message history.
-            </p>
-          </div>
-        ) : (
-          <div className="flex flex-col gap-2">
-            {messages.map((message, index) => {
-              const showDateSeparator =
-                index === 0 || dayKey(message.timestamp) !== dayKey(messages[index - 1].timestamp)
-              return (
-                <div key={message.id}>
-                  {showDateSeparator && (
-                    <div className="flex justify-center py-1">
-                      <span className="bg-card text-muted-foreground rounded-full border px-3 py-0.5 text-xs shadow-xs">
-                        {new Date(message.timestamp).toLocaleDateString(undefined, {
-                          day: 'numeric',
-                          month: 'short',
-                          year: 'numeric',
-                        })}
-                      </span>
-                    </div>
-                  )}
-                  <MessageBubble message={message} />
-                </div>
-              )
-            })}
-          </div>
-        )}
-      </ScrollArea>
+      <div ref={messageList} className="min-h-0 flex-1">
+        <ScrollArea className="bg-muted/40 size-full rounded-lg border p-3">
+          {query.isLoading ? (
+            <div className="flex justify-center p-6">
+              <Loader2 className="text-muted-foreground size-5 animate-spin" />
+            </div>
+          ) : messages.length === 0 ? (
+            <div className="text-muted-foreground flex flex-col gap-1 p-6 text-center text-sm">
+              <p>No messages stored for this chat yet.</p>
+              <p className="text-xs">
+                Messages appear here as they are sent or received, and as WhatsApp history sync
+                batches are processed after pairing. Contacts synced from your address book start
+                without message history.
+              </p>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {messages.map((message, index) => {
+                const showDateSeparator =
+                  index === 0 || dayKey(message.timestamp) !== dayKey(messages[index - 1].timestamp)
+                return (
+                  <div key={message.id}>
+                    {showDateSeparator && (
+                      <div className="flex justify-center py-1">
+                        <span className="bg-card text-muted-foreground rounded-full border px-3 py-0.5 text-xs shadow-xs">
+                          {new Date(message.timestamp).toLocaleDateString(undefined, {
+                            day: 'numeric',
+                            month: 'short',
+                            year: 'numeric',
+                          })}
+                        </span>
+                      </div>
+                    )}
+                    <MessageBubble message={message} />
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </ScrollArea>
+      </div>
 
       <div className="text-muted-foreground flex items-center justify-between text-xs">
         <span>{total} messages</span>

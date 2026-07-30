@@ -39,7 +39,7 @@ export default function ChatsPage() {
           className="h-[calc(100svh-9rem)] min-h-[26rem] overflow-hidden p-3 lg:h-auto lg:min-h-0"
         >
           {selected ? (
-            <MessageView chat={selected} />
+            <MessageView key={selected.jid} chat={selected} />
           ) : (
             <div className="text-muted-foreground flex h-full flex-col items-center justify-center gap-2">
               <MessagesSquare className="size-8" />
