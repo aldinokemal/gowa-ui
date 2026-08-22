@@ -4,17 +4,20 @@ import { ChatList } from '@/features/chat/chat-list'
 import { MessageView } from '@/features/chat/message-view'
 import { Card } from '@/components/ui/card'
 import { PageHeader } from '@/components/shared/page-header'
+import { selectedChatForDevice, type ChatSelection } from '@/features/chat/device-scope'
 import { DeviceGuard, useSelectedDevice } from '@/hooks/use-device-guard'
 import type { ChatInfo } from '@/api/chat'
 
 export default function ChatsPage() {
   const device = useSelectedDevice()
-  const [selected, setSelected] = useState<ChatInfo | null>(null)
+  const [selection, setSelection] = useState<ChatSelection | null>(null)
   const messagePane = useRef<HTMLDivElement>(null)
+  const selected = selectedChatForDevice(selection, device)
 
   // On stacked layouts the message pane sits below the fold, so bring it into view.
   const handleSelect = (chat: ChatInfo) => {
-    setSelected(chat)
+    if (!device) return
+    setSelection({ deviceId: device, chat })
     messagePane.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
   }
 
@@ -32,14 +35,19 @@ export default function ChatsPage() {
       <PageHeader title="Chats" description="Stored conversations for this device." />
       <div className="grid gap-4 lg:min-h-0 lg:flex-1 lg:grid-cols-[320px_1fr]">
         <Card className="h-[24rem] overflow-hidden p-3 lg:h-auto lg:min-h-0">
-          <ChatList selectedJid={selected?.jid ?? null} onSelect={handleSelect} />
+          <ChatList
+            key={device}
+            deviceId={device}
+            selectedJid={selected?.jid ?? null}
+            onSelect={handleSelect}
+          />
         </Card>
         <Card
           ref={messagePane}
           className="h-[calc(100svh-9rem)] min-h-[26rem] overflow-hidden p-3 lg:h-auto lg:min-h-0"
         >
           {selected ? (
-            <MessageView key={selected.jid} chat={selected} />
+            <MessageView key={`${device}:${selected.jid}`} chat={selected} deviceId={device} />
           ) : (
             <div className="text-muted-foreground flex h-full flex-col items-center justify-center gap-2">
               <MessagesSquare className="size-8" />

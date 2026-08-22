@@ -6,15 +6,18 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Switch } from '@/components/ui/switch'
+import { chatListQueryKey } from '@/features/chat/device-scope'
 import { formatDate, isZeroTime } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 const PAGE_SIZE = 25
 
 export function ChatList({
+  deviceId,
   selectedJid,
   onSelect,
 }: {
+  deviceId: string
   selectedJid: string | null
   onSelect: (chat: ChatInfo) => void
 }) {
@@ -23,14 +26,17 @@ export function ChatList({
   const [offset, setOffset] = useState(0)
 
   const query = useQuery({
-    queryKey: ['chats', { search, hasMedia, offset }],
+    queryKey: chatListQueryKey(deviceId, { search, hasMedia, offset }),
     queryFn: () =>
-      listChats({
-        search: search || undefined,
-        has_media: hasMedia || undefined,
-        limit: PAGE_SIZE,
-        offset,
-      }),
+      listChats(
+        {
+          search: search || undefined,
+          has_media: hasMedia || undefined,
+          limit: PAGE_SIZE,
+          offset,
+        },
+        deviceId,
+      ),
     placeholderData: keepPreviousData,
   })
 
