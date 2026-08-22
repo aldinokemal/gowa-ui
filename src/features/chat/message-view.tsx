@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Switch } from '@/components/ui/switch'
 import { chatMessagesQueryKey } from '@/features/chat/device-scope'
+import { chatDisplayName, senderDisplayName } from '@/features/chat/display-name'
 import { useActionMutation } from '@/hooks/use-action-mutation'
 import { formatDate } from '@/lib/format'
 import { cn } from '@/lib/utils'
@@ -37,7 +38,9 @@ function MessageBubble({ message, deviceId }: { message: MessageInfo; deviceId: 
         )}
       >
         {!message.is_from_me && (
-          <p className="text-muted-foreground mb-0.5 font-mono text-xs">{message.sender_jid}</p>
+          <p className="text-muted-foreground mb-0.5 font-mono text-xs">
+            {senderDisplayName(message)}
+          </p>
         )}
         {message.content && <p className="break-words whitespace-pre-wrap">{message.content}</p>}
         {hasMedia && <MessageMedia message={message} deviceId={deviceId} />}
@@ -81,6 +84,8 @@ export function MessageView({ chat, deviceId }: { chat: ChatInfo; deviceId: stri
     [query.data?.data],
   )
   const total = query.data?.pagination.total ?? 0
+  const responseChat = query.data?.chat_info
+  const resolvedChat = responseChat?.jid === chat.jid ? responseChat : chat
 
   useLayoutEffect(() => {
     const viewport = messageList.current?.querySelector<HTMLElement>(
@@ -111,10 +116,10 @@ export function MessageView({ chat, deviceId }: { chat: ChatInfo; deviceId: stri
     <div className="flex h-full flex-col gap-3">
       <div className="flex items-start justify-between gap-2 border-b pb-3">
         <div className="min-w-0">
-          <h2 className="truncate font-medium">{chat.name || chat.jid}</h2>
-          <p className="text-muted-foreground truncate font-mono text-xs">{chat.jid}</p>
+          <h2 className="truncate font-medium">{chatDisplayName(resolvedChat)}</h2>
+          <p className="text-muted-foreground truncate font-mono text-xs">{resolvedChat.jid}</p>
         </div>
-        <ChatControls chat={chat} />
+        <ChatControls chat={resolvedChat} />
       </div>
 
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
