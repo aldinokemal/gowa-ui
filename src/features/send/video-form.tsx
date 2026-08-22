@@ -1,11 +1,12 @@
 import { useState, type FormEvent } from 'react'
-import { sendVideo, videoRequest } from '@/api/send'
+import { sendVideo, videoRequest, type MediaQuality } from '@/api/send'
 import { FormActions } from '@/components/shared/curl-dialog'
 import { FileOrUrlInput, type FileOrUrl } from '@/components/shared/file-or-url-input'
 import { ResultPanel } from '@/components/shared/result-panel'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
+import { MediaQualityField } from '@/features/send/media-quality-field'
 import { useActionMutation } from '@/hooks/use-action-mutation'
 import { useRecipientJid } from '@/stores/recipient'
 
@@ -14,7 +15,7 @@ export function SendVideoForm() {
   const [source, setSource] = useState<FileOrUrl>({ url: '' })
   const [caption, setCaption] = useState('')
   const [viewOnce, setViewOnce] = useState(false)
-  const [compress, setCompress] = useState(true)
+  const [quality, setQuality] = useState<MediaQuality>('standard')
   const [gifPlayback, setGifPlayback] = useState(false)
 
   const mutation = useActionMutation(sendVideo, { successMessage: 'Video sent' })
@@ -25,7 +26,7 @@ export function SendVideoForm() {
     fileUrl: source.url || undefined,
     caption,
     view_once: viewOnce,
-    compress,
+    quality,
     gif_playback: gifPlayback,
     // view_once messages cannot be forwarded per the WhatsApp protocol
     is_forwarded: viewOnce ? false : undefined,
@@ -51,10 +52,7 @@ export function SendVideoForm() {
         <Switch checked={viewOnce} onCheckedChange={setViewOnce} />
         View once
       </label>
-      <label className="flex items-center gap-2 text-sm">
-        <Switch checked={compress} onCheckedChange={setCompress} />
-        Compress
-      </label>
+      <MediaQualityField value={quality} onChange={setQuality} />
       <label className="flex items-center gap-2 text-sm">
         <Switch checked={gifPlayback} onCheckedChange={setGifPlayback} />
         GIF playback

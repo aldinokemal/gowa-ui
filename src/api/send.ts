@@ -31,7 +31,19 @@ export interface MediaPayload {
   duration?: number
 }
 
-export type ImagePayload = MediaPayload & { view_once?: boolean; compress?: boolean }
+export type MediaQuality = 'standard' | 'hd' | 'original'
+
+function mediaQualityFields(quality?: MediaQuality, compress?: boolean) {
+  return quality
+    ? { compress: quality !== 'original', hd: quality === 'hd' }
+    : { compress, hd: undefined }
+}
+
+export type ImagePayload = MediaPayload & {
+  view_once?: boolean
+  compress?: boolean
+  quality?: MediaQuality
+}
 
 export function imageRequest(p: ImagePayload): ApiRequest {
   return {
@@ -43,7 +55,7 @@ export function imageRequest(p: ImagePayload): ApiRequest {
       image: p.file,
       image_url: p.fileUrl,
       view_once: p.view_once,
-      compress: p.compress,
+      ...mediaQualityFields(p.quality, p.compress),
       is_forwarded: p.is_forwarded,
       reply_message_id: p.reply_message_id,
       duration: p.duration,
@@ -78,6 +90,7 @@ export function sendFile(p: MediaPayload): Promise<SendResult> {
 export type VideoPayload = MediaPayload & {
   view_once?: boolean
   compress?: boolean
+  quality?: MediaQuality
   gif_playback?: boolean
 }
 
@@ -91,7 +104,7 @@ export function videoRequest(p: VideoPayload): ApiRequest {
       video: p.file,
       video_url: p.fileUrl,
       view_once: p.view_once,
-      compress: p.compress,
+      ...mediaQualityFields(p.quality, p.compress),
       gif_playback: p.gif_playback,
       is_forwarded: p.is_forwarded,
       reply_message_id: p.reply_message_id,
