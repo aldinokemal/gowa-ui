@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Switch } from '@/components/ui/switch'
+import { chatMessagesQueryKey } from '@/features/chat/device-scope'
 import { useActionMutation } from '@/hooks/use-action-mutation'
 import { formatDate } from '@/lib/format'
 import { cn } from '@/lib/utils'
@@ -25,7 +26,7 @@ function dayKey(timestamp: string): string {
   return new Date(timestamp).toDateString()
 }
 
-function MessageBubble({ message }: { message: MessageInfo }) {
+function MessageBubble({ message, deviceId }: { message: MessageInfo; deviceId: string }) {
   const hasMedia = message.media_type && message.media_type !== ''
   return (
     <div className={cn('flex', message.is_from_me ? 'justify-end' : 'justify-start')}>
@@ -39,7 +40,7 @@ function MessageBubble({ message }: { message: MessageInfo }) {
           <p className="text-muted-foreground mb-0.5 font-mono text-xs">{message.sender_jid}</p>
         )}
         {message.content && <p className="break-words whitespace-pre-wrap">{message.content}</p>}
-        {hasMedia && <MessageMedia message={message} />}
+        {hasMedia && <MessageMedia message={message} deviceId={deviceId} />}
         {message.reactions && message.reactions.length > 0 && (
           <p className="mt-1 text-xs">{message.reactions.map((r) => r.emoji).join(' ')}</p>
         )}
@@ -51,7 +52,7 @@ function MessageBubble({ message }: { message: MessageInfo }) {
   )
 }
 
-export function MessageView({ chat }: { chat: ChatInfo }) {
+export function MessageView({ chat, deviceId }: { chat: ChatInfo; deviceId: string }) {
   const queryClient = useQueryClient()
   const messageList = useRef<HTMLDivElement>(null)
   const [search, setSearch] = useState('')
@@ -60,14 +61,18 @@ export function MessageView({ chat }: { chat: ChatInfo }) {
   const [draft, setDraft] = useState('')
 
   const query = useQuery({
-    queryKey: ['chat-messages', chat.jid, { search, mediaOnly, offset }],
+    queryKey: chatMessagesQueryKey(deviceId, chat.jid, { search, mediaOnly, offset }),
     queryFn: () =>
-      getChatMessages(chat.jid, {
-        search: search || undefined,
-        media_only: mediaOnly || undefined,
-        limit: PAGE_SIZE,
-        offset,
-      }),
+      getChatMessages(
+        chat.jid,
+        {
+          search: search || undefined,
+          media_only: mediaOnly || undefined,
+          limit: PAGE_SIZE,
+          offset,
+        },
+        deviceId,
+      ),
     placeholderData: keepPreviousData,
   })
 
@@ -90,7 +95,9 @@ export function MessageView({ chat }: { chat: ChatInfo }) {
       successMessage: 'Message sent',
       onSuccess: () => {
         setDraft('')
-        void queryClient.invalidateQueries({ queryKey: ['chat-messages', chat.jid] })
+        void queryClient.invalidateQueries({
+          queryKey: ['chat-messages', deviceId, chat.jid],
+        })
       },
     },
   )
@@ -165,7 +172,7 @@ export function MessageView({ chat }: { chat: ChatInfo }) {
                         </span>
                       </div>
                     )}
-                    <MessageBubble message={message} />
+                    <MessageBubble message={message} deviceId={deviceId} />
                   </div>
                 )
               })}

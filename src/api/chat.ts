@@ -56,13 +56,21 @@ export interface ChatMessagesParams {
 
 const enc = encodeURIComponent
 
-export function listChats(params: ListChatsParams) {
-  return results<{ data: ChatInfo[]; pagination: Pagination }>(http.get('/chats', { params }))
+export function listChats(params: ListChatsParams, deviceId: string) {
+  return results<{ data: ChatInfo[]; pagination: Pagination }>(
+    http.get('/chats', {
+      params,
+      headers: { 'X-Device-Id': encodeURIComponent(deviceId) },
+    }),
+  )
 }
 
-export function getChatMessages(chatJid: string, params: ChatMessagesParams) {
+export function getChatMessages(chatJid: string, params: ChatMessagesParams, deviceId: string) {
   return results<{ data: MessageInfo[]; pagination: Pagination; chat_info: ChatInfo }>(
-    http.get(`/chat/${enc(chatJid)}/messages`, { params }),
+    http.get(`/chat/${enc(chatJid)}/messages`, {
+      params,
+      headers: { 'X-Device-Id': encodeURIComponent(deviceId) },
+    }),
   )
 }
 

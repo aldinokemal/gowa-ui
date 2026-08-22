@@ -55,8 +55,11 @@ export interface DownloadedMedia {
   file_size: number
 }
 
-export function downloadMedia(messageId: string, phone: string) {
+export function downloadMedia(messageId: string, phone: string, deviceId: string) {
   return results<DownloadedMedia>(
-    http.get(`/message/${enc(messageId)}/download`, { params: { phone } }),
+    http.get(`/message/${enc(messageId)}/download`, {
+      params: { phone },
+      headers: { 'X-Device-Id': encodeURIComponent(deviceId) },
+    }),
   )
 }

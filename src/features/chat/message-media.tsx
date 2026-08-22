@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Download, Loader2 } from 'lucide-react'
 import { downloadMedia } from '@/api/message'
 import { Button } from '@/components/ui/button'
+import { messageMediaQueryKey } from '@/features/chat/device-scope'
 import { toApiError } from '@/lib/api-error'
 import { formatBytes } from '@/lib/format'
 import { rerootServerUrl } from '@/lib/url'
@@ -11,14 +12,14 @@ import { useConnection } from '@/stores/connection'
 import type { MessageInfo } from '@/api/chat'
 
 /** Lazily downloads media for a message and renders it inline once fetched. */
-export function MessageMedia({ message }: { message: MessageInfo }) {
+export function MessageMedia({ message, deviceId }: { message: MessageInfo; deviceId: string }) {
   const [open, setOpen] = useState(false)
   const baseUrl = useConnection((state) => state.baseUrl)
   const { data: info } = useAppInfo()
 
   const query = useQuery({
-    queryKey: ['media', message.id, message.chat_jid],
-    queryFn: () => downloadMedia(message.id, message.chat_jid),
+    queryKey: messageMediaQueryKey(deviceId, message.id, message.chat_jid),
+    queryFn: () => downloadMedia(message.id, message.chat_jid, deviceId),
     enabled: open,
     staleTime: Infinity,
     retry: false,
