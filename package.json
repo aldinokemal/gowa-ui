@@ -11,7 +11,9 @@
     "typecheck": "tsc -b",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "test": "vitest run"
+    "test": "vitest run",
+    "sync:openapi": "node scripts/sync-openapi.mjs",
+    "sync:openapi:force": "node scripts/sync-openapi.mjs --force"
   },
   "dependencies": {
     "@fontsource-variable/bricolage-grotesque": "^5.2.10",

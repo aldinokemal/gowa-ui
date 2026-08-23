@@ -1,23 +1,15 @@
-# Bundled at build time from commit 7ee1ead9
-# Source: https://github.com/aldinokemal/go-whatsapp-web-multidevice/blob/7ee1ead9/docs/openapi.yaml
+# Bundled at build time — tag v8.3.3
+# Source: https://github.com/aldinokemal/go-whatsapp-web-multidevice/blob/v8.3.3/docs/openapi.yaml
 openapi: "3.0.0"
 info:
   title: WhatsApp API MultiDevice
-  version: 9.0.0
+  version: 8.3.0
   description: |
     This API is used for sending whatsapp via API.
-
-    The web dashboard is a separate project (gowa-ui); the server downloads its
-    latest release asset and serves it at `/` (or returns a JSON banner when
-    APP_UI_ENABLED=false).
 
     Device scoping:
     - Send `X-Device-Id` on all device-scoped REST calls.
     - WebSocket: connect to `/ws?device_id=<id>`.
-    - WebSocket auth (when basic auth is enabled): browsers cannot set an
-      Authorization header on WebSocket connections, so also pass
-      `&authorization=<base64(user:pass)>` in the query string. Use TLS in
-      production since the credential is visible in the URL.
 servers:
   - url: http://localhost:3000
 tags:
@@ -31,8 +23,6 @@ tags:
     description: Send Message (Text/Image/File/Video).
   - name: message
     description: Message manipulation (revoke/react/update).
-  - name: call
-    description: Call management (reject incoming calls)
   - name: chat
     description: Chat conversations and messaging
   - name: group
@@ -45,29 +35,6 @@ security:
   - basicAuth: []
 
 paths:
-  /health:
-    get:
-      operationId: health
-      tags:
-        - app
-      summary: Health check
-      description: Public health probe registered at `/health`; it is not prefixed by `APP_BASE_PATH`.
-      security: []
-      responses:
-        '200':
-          description: Service healthy
-          content:
-            text/plain:
-              schema:
-                type: string
-                example: OK
-        '503':
-          description: Service unavailable
-          content:
-            text/plain:
-              schema:
-                type: string
-                example: Service Unavailable
   /app/login:
     get:
       operationId: appLogin
@@ -116,105 +83,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorInternalServer'
-  /app/passkey:
-    get:
-      operationId: appPasskeyStatus
-      tags:
-        - app
-      summary: Get pending passkey pairing state
-      description: >
-        Passkey pairing is initiated from the phone during QR login. When the phone requests it,
-        the server sends a WebAuthn challenge which is stored here (also broadcast over the
-        websocket as PASSKEY_REQUEST) until a response is submitted.
-      parameters:
-        - $ref: '#/components/parameters/DeviceIdHeader'
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PasskeyStatusResponse'
-        '500':
-          description: Internal Server Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorInternalServer'
-  /app/passkey/response:
-    post:
-      operationId: appPasskeyResponse
-      tags:
-        - app
-      summary: Submit the WebAuthn assertion for passkey pairing
-      description: >
-        Send the WebAuthn assertion produced for the pending challenge (see GET /app/passkey).
-        The assertion must be produced by an authenticator holding the WhatsApp account's passkey,
-        against WhatsApp's relying-party ID; the payload format matches PublicKeyCredential.toJSON().
-        If the assertion is submitted within the 5-minute handoff window, pairing is confirmed
-        automatically; otherwise a confirmation code is issued (PASSKEY_CONFIRMATION websocket event)
-        and must be confirmed via POST /app/passkey/confirm.
-      parameters:
-        - $ref: '#/components/parameters/DeviceIdHeader'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/WebAuthnAssertion'
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/GenericResponse'
-        '400':
-          description: Bad Request
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorBadRequest'
-        '500':
-          description: Internal Server Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorInternalServer'
-  /app/passkey/confirm:
-    post:
-      operationId: appPasskeyConfirm
-      tags:
-        - app
-      summary: Confirm the passkey pairing code
-      description: >
-        Confirms that the pairing code from the PASSKEY_CONFIRMATION event was shown to the user
-        and matches the code displayed on the phone. Only needed when skip_handoff_ux is false.
-      parameters:
-        - $ref: '#/components/parameters/DeviceIdHeader'
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/GenericResponse'
-        '500':
-          description: Internal Server Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorInternalServer'
   /app/logout:
     get:
       operationId: appLogout
       tags:
         - app
-      summary: Logout the active device (keeps the device slot)
-      description: >-
-        Logs the active device out of WhatsApp and clears its session. The device
-        slot (id and display name) is kept, so it stays listed (disconnected) and
-        can be re-paired under the same id. Use DELETE /devices/{device_id} to remove the slot.
+      summary: Remove database and logout
       parameters:
         - $ref: '#/components/parameters/DeviceIdHeader'
       responses:
@@ -311,11 +185,7 @@ paths:
                         description: Whether the device is logged in to WhatsApp
                       device_id:
                         type: string
-                        description: Session ID registered via POST /devices
-                        example: 'org_2'
-                      jid:
-                        type: string
-                        description: WhatsApp JID of the logged-in account (empty until login)
+                        description: The device ID
                         example: '6289685028129@s.whatsapp.net'
         '400':
           description: Bad Request
@@ -323,69 +193,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorBadRequest'
-        '500':
-          description: Internal Server Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorInternalServer'
-  /app/info:
-    get:
-      operationId: appInfo
-      tags:
-        - app
-      summary: Get server metadata
-      description: >
-        Returns server version, base path, media size limits, and enabled
-        features. Requires no device; intended for standalone UIs (gowa-ui)
-        that previously read these values from the embedded dashboard HTML.
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  status:
-                    type: integer
-                    example: 200
-                  code:
-                    type: string
-                    example: SUCCESS
-                  message:
-                    type: string
-                    example: Fetch app info success
-                  results:
-                    type: object
-                    properties:
-                      version:
-                        type: string
-                        example: 'v9.0.0'
-                      os:
-                        type: string
-                        example: 'GOWA'
-                      base_path:
-                        type: string
-                        example: ''
-                      max_file_size:
-                        type: integer
-                        format: int64
-                        description: Max document upload size in bytes
-                        example: 50000000
-                      max_video_size:
-                        type: integer
-                        format: int64
-                        description: Max video upload size in bytes
-                        example: 100000000
-                      max_image_size:
-                        type: integer
-                        format: int64
-                        description: Max image upload size in bytes
-                        example: 20000000
-                      chatwoot_enabled:
-                        type: boolean
-                        description: Whether Chatwoot integration routes are registered
         '500':
           description: Internal Server Error
           content:
@@ -430,22 +237,6 @@ paths:
                   type: string
                   description: Optional custom device ID. If not provided, one will be generated.
                   example: 'my-custom-device-id'
-                webhook_url:
-                  type: string
-                  description: Optional device-specific webhook URL. If set, events for this device will be sent here instead of the global webhook.
-                  example: 'https://device-webhook.example.com/handler'
-                webhook_secret:
-                  type: string
-                  description: Optional secret used to sign device-specific webhook payloads (HMAC).
-                  example: 'super-secret-key'
-                webhook_events:
-                  type: string
-                  description: Optional comma-separated list of event names to forward to the device-specific webhook. Empty means all events.
-                  example: 'message,message.ack'
-                webhook_insecure_skip_verify:
-                  type: boolean
-                  description: Optional. Skip TLS certificate verification when delivering to the device-specific webhook.
-                  example: false
       responses:
         '200':
           description: OK
@@ -504,10 +295,7 @@ paths:
       tags:
         - device
       summary: Remove a device
-      description: >-
-        Remove a device slot from the server. This also logs it out of WhatsApp and
-        clears its session and chat data. To log out while keeping the slot, use the
-        logout endpoint instead.
+      description: Remove a device from the server (does not logout from WhatsApp)
       parameters:
         - name: device_id
           in: path
@@ -540,11 +328,8 @@ paths:
       operationId: loginDevice
       tags:
         - device
-      summary: Login a device with QR code
-      description: >-
-        Start QR pairing for a specific device slot and return a link to the QR
-        image to scan. Equivalent to `GET /app/login` with
-        `X-Device-Id: <device_id>`, with the device taken from the path instead.
+      summary: Login device with QR code
+      description: Initiate QR code login for a specific device
       parameters:
         - name: device_id
           in: path
@@ -558,7 +343,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/DeviceLoginResponse'
+                $ref: '#/components/schemas/LoginResponse'
         '404':
           description: Device not found
           content:
@@ -577,11 +362,8 @@ paths:
       operationId: loginDeviceWithCode
       tags:
         - device
-      summary: Login a device with pairing code
-      description: >-
-        Start pairing-code login for a specific device slot and return the code to
-        enter on the phone. Equivalent to `GET /app/login-with-code` with
-        `X-Device-Id: <device_id>`, with the device taken from the path instead.
+      summary: Login device with pairing code
+      description: Initiate pairing code login for a specific device
       parameters:
         - name: device_id
           in: path
@@ -602,7 +384,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/DeviceLoginWithCodeResponse'
+                $ref: '#/components/schemas/LoginWithCodeResponse'
         '404':
           description: Device not found
           content:
@@ -622,10 +404,7 @@ paths:
       tags:
         - device
       summary: Logout device
-      description: >-
-        Logs a specific device out of WhatsApp and clears its session, but keeps the
-        device slot (id and display name) so it can be re-paired under the same id.
-        To remove the slot entirely, use DELETE /devices/{device_id}.
+      description: Logout a specific device from WhatsApp and remove its session
       parameters:
         - name: device_id
           in: path
@@ -708,174 +487,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/DeviceStatusResponse'
-        '404':
-          description: Device not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorNotFound'
-        '500':
-          description: Internal Server Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorInternalServer'
-
-  /devices/{device_id}/webhook:
-    get:
-      operationId: getDeviceWebhook
-      tags:
-        - device
-      summary: Get device webhook configuration
-      description: Get the webhook configuration for a specific device. Returns empty values if no device-specific webhook is set.
-      parameters:
-        - name: device_id
-          in: path
-          required: true
-          schema:
-            type: string
-          description: Device ID
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  status:
-                    type: integer
-                    example: 200
-                  code:
-                    type: string
-                    example: SUCCESS
-                  message:
-                    type: string
-                    example: Device webhook retrieved
-                  results:
-                    type: object
-                    properties:
-                      device_id:
-                        type: string
-                        description: The device ID
-                        example: 'my-device'
-                      webhook_url:
-                        type: string
-                        description: The configured webhook URL (empty if not set)
-                        example: 'https://example.com/webhook'
-                      webhook_secret:
-                        type: string
-                        description: Secret used to sign payloads for this device webhook
-                        example: 'super-secret-key'
-                      webhook_events:
-                        type: string
-                        description: Comma-separated event whitelist for this device webhook
-                        example: 'message,message.ack'
-                      webhook_insecure_skip_verify:
-                        type: boolean
-                        description: Whether TLS verification is skipped for this device webhook
-                        example: false
-        '404':
-          description: Device not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorNotFound'
-        '500':
-          description: Internal Server Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorInternalServer'
-    patch:
-      operationId: updateDeviceWebhook
-      tags:
-        - device
-      summary: Set device webhook configuration
-      description: |
-        Set a custom webhook configuration for a specific device. When set, webhook events for this device
-        will be sent to this URL instead of the global webhook URL. Device-level `webhook_secret`,
-        `webhook_events`, and `webhook_insecure_skip_verify` override the global webhook settings for this device.
-
-        Set to empty string to clear and use the global webhook.
-      parameters:
-        - name: device_id
-          in: path
-          required: true
-          schema:
-            type: string
-          description: Device ID
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                webhook_url:
-                  type: string
-                  description: Custom webhook URL to use for this device. Set to empty string to clear.
-                  example: 'https://example.com/webhook'
-                webhook_secret:
-                  type: string
-                  description: Optional secret used to sign payloads for this device webhook.
-                  example: 'super-secret-key'
-                webhook_events:
-                  type: string
-                  description: Optional comma-separated event whitelist for this device webhook. Empty means all events.
-                  example: 'message,message.ack'
-                webhook_insecure_skip_verify:
-                  type: boolean
-                  description: Optional. Skip TLS certificate verification for this device webhook.
-                  example: false
-              required:
-                - webhook_url
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  status:
-                    type: integer
-                    example: 200
-                  code:
-                    type: string
-                    example: SUCCESS
-                  message:
-                    type: string
-                    example: Device webhook updated
-                  results:
-                    type: object
-                    properties:
-                      device_id:
-                        type: string
-                        description: The device ID
-                        example: 'my-device'
-                      webhook_url:
-                        type: string
-                        description: The configured webhook URL
-                        example: 'https://example.com/webhook'
-                      webhook_secret:
-                        type: string
-                        description: Secret used to sign payloads for this device webhook
-                        example: 'super-secret-key'
-                      webhook_events:
-                        type: string
-                        description: Comma-separated event whitelist for this device webhook
-                        example: 'message,message.ack'
-                      webhook_insecure_skip_verify:
-                        type: boolean
-                        description: Whether TLS verification is skipped for this device webhook
-                        example: false
-        '400':
-          description: Bad Request
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorBadRequest'
         '404':
           description: Device not found
           content:
@@ -1072,12 +683,12 @@ paths:
       summary: User My List Groups
       description: |
         Get all groups that the authenticated user has joined.
-
+        
         ⚠️ **Known Limitation**: This endpoint returns a maximum of 500 groups due to a WhatsApp protocol limitation.
         The underlying whatsmeow library's `GetJoinedGroups()` function sends a single query to WhatsApp servers,
         which enforces this limit. This is not a bug in this API - it's a constraint imposed by WhatsApp's
         multi-device protocol. Users with more than 500 groups will only receive the first 500 groups.
-
+        
         For more details, see: https://github.com/tulir/whatsmeow/blob/main/group.go
       externalDocs:
         description: WhatsApp protocol limitation reference (whatsmeow source)
@@ -1208,7 +819,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorInternalServer'
-
+  
   /send/message:
     post:
       operationId: sendMessage
@@ -1241,8 +852,8 @@ paths:
                   description: Whether this is a forwarded message
                 duration:
                   type: integer
-                  example: 86400
-                  description: "Disappearing message duration in seconds. Allowed values: 0 (no expiry), 86400 (24h), 604800 (7d), 7776000 (90d)."
+                  example: 3600
+                  description: Disappearing message duration in seconds (optional)
                 mentions:
                   type: array
                   items:
@@ -1292,10 +903,6 @@ paths:
                   type: string
                   example: selamat malam
                   description: Caption to send
-                reply_message_id:
-                  type: string
-                  example: 3EB089B9D6ADD58153C561
-                  description: Message ID that you want reply
                 view_once:
                   type: boolean
                   example: false
@@ -1312,14 +919,10 @@ paths:
                   type: boolean
                   example: false
                   description: Compress image
-                hd:
-                  type: boolean
-                  example: true
-                  description: Send a high-definition image rendition (maximum edge 2560px). Overrides compress when true.
                 duration:
                   type: integer
-                  example: 86400
-                  description: "Disappearing message duration in seconds. Allowed values: 0 (no expiry), 86400 (24h), 604800 (7d), 7776000 (90d)."
+                  example: 3600
+                  description: Disappearing message duration in seconds (optional)
                 is_forwarded:
                   type: boolean
                   example: false
@@ -1369,22 +972,14 @@ paths:
                   type: string
                   example: https://example.com/audio.mp3
                   description: Audio URL to send
-                ptt:
-                  type: boolean
-                  example: false
-                  description: Send as a WhatsApp voice note. When true, ffmpeg is required to transcode to OGG Opus.
-                reply_message_id:
-                  type: string
-                  example: 3EB089B9D6ADD58153C561
-                  description: Message ID that you want reply
                 is_forwarded:
                   type: boolean
                   example: false
                   description: Whether this is a forwarded message
                 duration:
                   type: integer
-                  example: 86400
-                  description: "Disappearing message duration in seconds. Allowed values: 0 (no expiry), 86400 (24h), 604800 (7d), 7776000 (90d)."
+                  example: 3600
+                  description: Disappearing message duration in seconds (optional)
       responses:
         '200':
           description: OK
@@ -1426,26 +1021,18 @@ paths:
                   type: string
                   example: selamat malam
                   description: Caption to send
-                reply_message_id:
-                  type: string
-                  example: 3EB089B9D6ADD58153C561
-                  description: Message ID that you want reply
                 file:
                   type: string
                   format: binary
                   description: File to send
-                file_url:
-                  type: string
-                  example: https://example.com/document.pdf
-                  description: File URL to download and send
                 is_forwarded:
                   type: boolean
                   example: false
                   description: Whether this is a forwarded message
                 duration:
                   type: integer
-                  example: 86400
-                  description: "Disappearing message duration in seconds. Allowed values: 0 (no expiry), 86400 (24h), 604800 (7d), 7776000 (90d)."
+                  example: 3600
+                  description: Disappearing message duration in seconds (optional)
       responses:
         '200':
           description: OK
@@ -1494,8 +1081,8 @@ paths:
                   description: URL of sticker image to send
                 duration:
                   type: integer
-                  example: 86400
-                  description: "Disappearing message duration in seconds. Allowed values: 0 (no expiry), 86400 (24h), 604800 (7d), 7776000 (90d)."
+                  example: 3600
+                  description: Disappearing message duration in seconds (optional)
                 is_forwarded:
                   type: boolean
                   example: false
@@ -1541,10 +1128,6 @@ paths:
                   type: string
                   example: ini contoh caption video
                   description: Caption to send
-                reply_message_id:
-                  type: string
-                  example: 3EB089B9D6ADD58153C561
-                  description: Message ID that you want reply
                 view_once:
                   type: boolean
                   example: false
@@ -1561,18 +1144,10 @@ paths:
                   type: boolean
                   example: false
                   description: Compress video
-                hd:
-                  type: boolean
-                  example: true
-                  description: Send an H.264 8-bit YUV 4:2:0 high-definition video rendition at CRF 23, capped at 1280x1280 while preserving aspect ratio and avoiding upscaling. Overrides compress when true.
-                gif_playback:
-                  type: boolean
-                  example: false
-                  description: Display video as GIF (looping, silent, autoplay)
                 duration:
                   type: integer
-                  example: 86400
-                  description: "Disappearing message duration in seconds. Allowed values: 0 (no expiry), 86400 (24h), 604800 (7d), 7776000 (90d)."
+                  example: 3600
+                  description: Disappearing message duration in seconds (optional)
                 is_forwarded:
                   type: boolean
                   example: false
@@ -1628,8 +1203,8 @@ paths:
                   description: Whether this is a forwarded message
                 duration:
                   type: integer
-                  example: 86400
-                  description: "Disappearing message duration in seconds. Allowed values: 0 (no expiry), 86400 (24h), 604800 (7d), 7776000 (90d)."
+                  example: 3600
+                  description: Disappearing message duration in seconds (optional)
       responses:
         '200':
           description: OK
@@ -1681,8 +1256,8 @@ paths:
                   description: Whether this is a forwarded message
                 duration:
                   type: integer
-                  example: 86400
-                  description: "Disappearing message duration in seconds. Allowed values: 0 (no expiry), 86400 (24h), 604800 (7d), 7776000 (90d)."
+                  example: 3600
+                  description: Disappearing message duration in seconds (optional)
       responses:
         '200':
           description: OK
@@ -1734,8 +1309,8 @@ paths:
                   description: Whether this is a forwarded message
                 duration:
                   type: integer
-                  example: 86400
-                  description: "Disappearing message duration in seconds. Allowed values: 0 (no expiry), 86400 (24h), 604800 (7d), 7776000 (90d)."
+                  example: 3600
+                  description: Disappearing message duration in seconds (optional)
       responses:
         '200':
           description: OK
@@ -1790,8 +1365,8 @@ paths:
                   example: 2
                 duration:
                   type: integer
-                  example: 86400
-                  description: "Disappearing message duration in seconds. Allowed values: 0 (no expiry), 86400 (24h), 604800 (7d), 7776000 (90d)."
+                  example: 3600
+                  description: Disappearing message duration in seconds (optional)
               required:
                 - phone
                 - question
@@ -1914,12 +1489,6 @@ paths:
       tags:
         - message
       summary: Revoke Message
-      description: |
-        Revoke (delete for everyone) a message. Revokes the bot's own message by default.
-        If the target message was sent by another user and is present in chat storage,
-        the original sender is resolved automatically so a group-admin bot can revoke
-        other members' messages (anti-spam use case). The WhatsApp server rejects the
-        request if the bot is not a group admin.
       parameters:
         - $ref: '#/components/parameters/DeviceIdHeader'
         - in: path
@@ -2142,56 +1711,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorInternalServer'
-  /message/{message_id}/played:
-    post:
-      operationId: markMessagePlayed
-      tags:
-        - message
-      summary: Mark an audio message as played
-      description: >-
-        Sends WhatsApp's played receipt for an incoming audio message or voice
-        note. The message must exist in the active device's chat storage and
-        belong to the supplied chat.
-      parameters:
-        - $ref: '#/components/parameters/DeviceIdHeader'
-        - in: path
-          name: message_id
-          schema:
-            type: string
-          required: true
-          description: Message ID
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                phone:
-                  type: string
-                  example: '62819273192397132@s.whatsapp.net'
-                  description: Phone number or group JID containing the audio message
-              required:
-                - phone
-      responses:
-        '200':
-          description: Played receipt sent
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SendResponse'
-        '400':
-          description: Bad Request
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorBadRequest'
-        '500':
-          description: Internal Server Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorInternalServer'
   /message/{message_id}/star:
     post:
       operationId: starMessage
@@ -2282,64 +1801,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorInternalServer'
-  /message/{message_id}/forward:
-    post:
-      operationId: forwardMessage
-      tags:
-        - message
-      summary: Forward Message
-      description: |
-        Forward a message that exists in local chat storage to another chat by message ID.
-        Text and standard media types (image, video, video note, audio, document, sticker) are supported.
-        Media references are reused when possible; stale refs trigger an automatic re-upload fallback.
-      parameters:
-        - $ref: '#/components/parameters/DeviceIdHeader'
-        - in: path
-          name: message_id
-          schema:
-            type: string
-          required: true
-          description: Source message ID from chat storage
-          example: '3EB0123456789ABCDEF'
-      requestBody:
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - phone
-              properties:
-                phone:
-                  type: string
-                  example: '6289685024051@s.whatsapp.net'
-                  description: Destination phone number or group JID
-                duration:
-                  type: integer
-                  example: 0
-                  description: Optional disappearing message duration override (0, 86400, 604800, 7776000)
-                force_reupload:
-                  type: boolean
-                  example: false
-                  description: Skip media reference reuse and re-upload media before sending
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SendResponse'
-        '400':
-          description: Bad Request
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorBadRequest'
-        '500':
-          description: Internal Server Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorInternalServer'
   /message/{message_id}/download:
     get:
       operationId: downloadMessageMedia
@@ -2386,26 +1847,19 @@ paths:
                       status:
                         type: string
                         example: Media downloaded successfully
-                      message_id:
+                      mime_type:
                         type: string
-                        example: 3EB0ABC123456789
-                      media_type:
-                        type: string
-                        example: audio
-                      filename:
-                        type: string
-                        example: audio.ogg
-                      file_path:
-                        type: string
-                        description: Local server file path where the media was saved
-                        example: statics/media/6289685028129/2026-06-09/audio.ogg
-                      file_url:
-                        type: string
-                        description: Public URL for downloading the saved media when it is stored under the served statics directory
-                        example: http://localhost:3000/statics/media/6289685028129/2026-06-09/audio.ogg
+                        example: image/jpeg
                       file_size:
                         type: integer
                         example: 524288
+                      file_name:
+                        type: string
+                        example: image.jpg
+                      data:
+                        type: string
+                        format: byte
+                        description: Base64 encoded media data
         '400':
           description: Bad Request
           content:
@@ -2420,64 +1874,6 @@ paths:
                 $ref: '#/components/schemas/ErrorNotFound'
         '500':
           description: Internal Server Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorInternalServer'
-
-  /call/reject:
-    post:
-      operationId: rejectCall
-      tags:
-        - call
-      summary: Reject an incoming call
-      description: |
-        Programmatically reject a specific incoming call. This endpoint allows selective call rejection
-        based on your application logic (e.g., time-of-day rules, caller whitelists, agent availability).
-
-        The call must still be ringing — rejection will fail if the call has already ended or been answered.
-
-        This is complementary to the auto-reject feature (`WHATSAPP_AUTO_REJECT_CALL=true`) which rejects
-        all incoming calls globally. Use this API for fine-grained control.
-
-        **Required fields from webhook:**
-        - `caller_jid`: Use `payload.from` from the `call.offer` webhook event
-        - `call_id`: Use `payload.call_id` from the `call.offer` webhook event
-      parameters:
-        - $ref: '#/components/parameters/DeviceIdHeader'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - caller_jid
-                - call_id
-              properties:
-                caller_jid:
-                  type: string
-                  example: '628987654321@s.whatsapp.net'
-                  description: JID of the caller (from webhook `payload.from`)
-                call_id:
-                  type: string
-                  example: 'ABC123DEF456'
-                  description: Unique call identifier (from webhook `payload.call_id`)
-      responses:
-        '200':
-          description: Call rejected successfully
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/GenericResponse'
-        '400':
-          description: Bad Request (missing or invalid fields)
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorBadRequest'
-        '500':
-          description: Internal Server Error (call already ended, not connected, etc.)
           content:
             application/json:
               schema:
@@ -2560,7 +1956,7 @@ paths:
           schema:
             type: string
           required: true
-          description: Chat JID (e.g., phone@s.whatsapp.net for individual or groupid@g.us for group). Percent-encoded values (e.g., groupid%40g.us) are accepted.
+          description: Chat JID (e.g., phone@s.whatsapp.net for individual or groupid@g.us for group)
           example: '6289685028129@s.whatsapp.net'
         - name: limit
           in: query
@@ -2634,6 +2030,75 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorInternalServer'
+  /chat/{chat_jid}/label:
+    post:
+      operationId: labelChat
+      tags:
+        - chat
+      summary: Label or unlabel a chat
+      description: Apply or remove a label from a chat conversation
+      parameters:
+        - $ref: '#/components/parameters/DeviceIdHeader'
+        - in: path
+          name: chat_jid
+          schema:
+            type: string
+          required: true
+          description: Chat JID (e.g., phone@s.whatsapp.net for individual or groupid@g.us for group)
+          example: '6289685028129@s.whatsapp.net'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                label_id:
+                  type: string
+                  example: 'label_123'
+                  description: Unique identifier for the label
+                label_name:
+                  type: string
+                  example: 'Important'
+                  description: Display name for the label
+                labeled:
+                  type: boolean
+                  example: true
+                  description: Whether to apply (true) or remove (false) the label
+              required:
+                - label_id
+                - label_name
+                - labeled
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LabelChatResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBadRequest'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorUnauthorized'
+        '404':
+          description: Chat Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorNotFound'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorInternalServer'
   /chat/{chat_jid}/pin:
     post:
       operationId: pinChat
@@ -2648,7 +2113,7 @@ paths:
           schema:
             type: string
           required: true
-          description: Chat JID (e.g., phone@s.whatsapp.net for individual or groupid@g.us for group). Percent-encoded values (e.g., groupid%40g.us) are accepted.
+          description: Chat JID (e.g., phone@s.whatsapp.net for individual or groupid@g.us for group)
           example: '6289685028129@s.whatsapp.net'
       requestBody:
         content:
@@ -2693,7 +2158,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorInternalServer'
-
+  
   /chat/{chat_jid}/disappearing:
     post:
       operationId: setDisappearingTimer
@@ -2708,7 +2173,7 @@ paths:
           schema:
             type: string
           required: true
-          description: Chat JID (e.g., phone@s.whatsapp.net for individual or groupid@g.us for group). Percent-encoded values (e.g., groupid%40g.us) are accepted.
+          description: Chat JID (e.g., phone@s.whatsapp.net for individual or groupid@g.us for group)
           example: '6289685028129@s.whatsapp.net'
       requestBody:
         content:
@@ -2741,7 +2206,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorInternalServer'
-
+  
   /chat/{chat_jid}/archive:
     post:
       operationId: archiveChat
@@ -2756,7 +2221,7 @@ paths:
           schema:
             type: string
           required: true
-          description: Chat JID (e.g., phone@s.whatsapp.net for individual or groupid@g.us for group). Percent-encoded values (e.g., groupid%40g.us) are accepted.
+          description: Chat JID (e.g., phone@s.whatsapp.net for individual or groupid@g.us for group)
           example: '6289685028129@s.whatsapp.net'
       requestBody:
         content:
@@ -2801,7 +2266,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorInternalServer'
-
+  
   /group/info:
     get:
       operationId: groupInfo
@@ -3610,59 +3075,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorInternalServer'
-  /newsletter/messages:
-    get:
-      operationId: getNewsletterMessages
-      tags:
-        - newsletter
-      summary: Get latest newsletter (channel) messages
-      description: |
-        Fetches the latest messages posted in a newsletter (channel) directly
-        from WhatsApp servers. You must be following/subscribed to the
-        newsletter to fetch its messages.
-      parameters:
-        - $ref: '#/components/parameters/DeviceIdHeader'
-        - name: newsletter_id
-          in: query
-          required: true
-          schema:
-            type: string
-          example: '120363024512399999@newsletter'
-        - name: count
-          in: query
-          required: false
-          description: Number of messages to return (default 50, max 100)
-          schema:
-            type: integer
-            default: 50
-            minimum: 1
-            maximum: 100
-        - name: before
-          in: query
-          required: false
-          description: Fetch messages older than this message server ID, used for pagination
-          schema:
-            type: integer
-            minimum: 0
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/NewsletterMessagesResponse'
-        '400':
-          description: Bad Request
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorBadRequest'
-        '500':
-          description: Internal Server Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorInternalServer'
 
   /chatwoot/sync:
     post:
@@ -3782,205 +3194,6 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorBadRequest'
 
-  /chatwoot/webhook/{device_id}:
-    post:
-      operationId: chatwootDeviceWebhook
-      tags:
-        - chatwoot
-      summary: Per-device Chatwoot webhook endpoint
-      description: |
-        Per-device variant of the Chatwoot webhook: configure each device's Chatwoot
-        inbox to POST here (the URL is returned as `webhook_url` by the device config
-        endpoints) so agent replies route deterministically to that device.
-        Route-by-config: in addition to the optional shared secret, the payload's
-        account and inbox must match the device's stored config or the request is
-        rejected with 401. Unknown device ids and non-message events are acknowledged
-        with 200 and ignored.
-      parameters:
-        - name: device_id
-          in: path
-          required: true
-          description: Device ID (or WhatsApp JID) the webhook is bound to
-          schema:
-            type: string
-      requestBody:
-        content:
-          application/json:
-            schema:
-              type: object
-              description: Chatwoot webhook payload (see Chatwoot documentation)
-      responses:
-        '200':
-          description: Webhook processed (or acknowledged and ignored)
-        '401':
-          description: Invalid secret, or payload account/inbox does not match the device's config
-
-  /chatwoot/configs:
-    get:
-      operationId: chatwootListConfigs
-      tags:
-        - chatwoot
-      summary: List per-device Chatwoot configs
-      description: Returns every per-device Chatwoot routing config. API tokens are masked.
-      responses:
-        '200':
-          description: Configs retrieved
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  code:
-                    type: string
-                    example: SUCCESS
-                  message:
-                    type: string
-                    example: Chatwoot device configs
-                  results:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/ChatwootDeviceConfig'
-
-  /devices/{device_id}/chatwoot/config:
-    get:
-      operationId: chatwootGetDeviceConfig
-      tags:
-        - chatwoot
-      summary: Get a device's Chatwoot config
-      description: Returns the per-device Chatwoot routing config (API token masked).
-      parameters:
-        - $ref: '#/components/parameters/ChatwootConfigDeviceId'
-      responses:
-        '200':
-          description: Config retrieved
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  code:
-                    type: string
-                    example: SUCCESS
-                  message:
-                    type: string
-                    example: Chatwoot device config
-                  results:
-                    $ref: '#/components/schemas/ChatwootDeviceConfig'
-        '404':
-          description: Device not found (DEVICE_NOT_FOUND) or no config for this device (CONFIG_NOT_FOUND)
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorBadRequest'
-    put:
-      operationId: chatwootUpsertDeviceConfig
-      tags:
-        - chatwoot
-      summary: Create or update a device's Chatwoot config
-      description: |
-        Routes this device's messages to its own Chatwoot destination (URL + account +
-        inbox + token) instead of the global CHATWOOT_* env config.
-        The URL is canonicalized and validated (http/https only, no embedded
-        credentials, hosts resolving to private/loopback/link-local/metadata addresses
-        are rejected unless allowlisted via CHATWOOT_ALLOWED_HOSTS).
-        On update, an empty `api_token` — or the masked value echoed back from a GET —
-        keeps the stored token. Changing the routing identity (url/account/inbox) is
-        rejected with 409 once the config has linked conversations; delete and
-        recreate the config to rebind.
-      parameters:
-        - $ref: '#/components/parameters/ChatwootConfigDeviceId'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - chatwoot_url
-                - account_id
-                - inbox_id
-              properties:
-                chatwoot_url:
-                  type: string
-                  example: 'https://chatwoot.example.com'
-                account_id:
-                  type: integer
-                  example: 1
-                inbox_id:
-                  type: integer
-                  example: 5
-                api_token:
-                  type: string
-                  description: Chatwoot agent/bot API token. Required on create; empty (or the masked value) keeps the stored token on update.
-                enabled:
-                  type: boolean
-                  default: true
-      responses:
-        '200':
-          description: Config saved
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  code:
-                    type: string
-                    example: SUCCESS
-                  message:
-                    type: string
-                    example: Chatwoot device config saved
-                  results:
-                    $ref: '#/components/schemas/ChatwootDeviceConfig'
-        '400':
-          description: Invalid request (INVALID_REQUEST) or rejected URL (INVALID_CHATWOOT_URL)
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorBadRequest'
-        '404':
-          description: Device not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorBadRequest'
-        '409':
-          description: Routing identity change rejected while linked conversations exist (CONFIG_HAS_LINKED_CONVERSATIONS)
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorBadRequest'
-    delete:
-      operationId: chatwootDeleteDeviceConfig
-      tags:
-        - chatwoot
-      summary: Delete a device's Chatwoot config
-      description: |
-        Removes the device's Chatwoot routing config along with its stored message
-        links (stale links would otherwise keep answering reverse lookups for the old
-        destination after a rebind).
-      parameters:
-        - $ref: '#/components/parameters/ChatwootConfigDeviceId'
-      responses:
-        '200':
-          description: Config deleted
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  code:
-                    type: string
-                    example: SUCCESS
-                  message:
-                    type: string
-                    example: Chatwoot device config deleted
-                  results:
-                    type: object
-                    properties:
-                      device_id:
-                        type: string
-                        example: 'my-device-id'
-
 components:
   parameters:
     DeviceIdHeader:
@@ -3994,57 +3207,12 @@ components:
       schema:
         type: string
         example: 'my-device-id'
-    ChatwootConfigDeviceId:
-      name: device_id
-      in: path
-      required: true
-      description: Device ID (or WhatsApp JID) whose Chatwoot config is addressed
-      schema:
-        type: string
-        example: 'my-device-id'
 
   securitySchemes:
     basicAuth:
       type: http
       scheme: basic
   schemas:
-    ChatwootDeviceConfig:
-      type: object
-      description: Per-device Chatwoot routing config (API token masked on every read)
-      properties:
-        device_id:
-          type: string
-          example: 'my-device-id'
-        device_jid:
-          type: string
-          description: WhatsApp JID of the device; stamped automatically at login (empty before pairing)
-          example: '628123456789@s.whatsapp.net'
-        chatwoot_url:
-          type: string
-          example: 'https://chatwoot.example.com'
-        account_id:
-          type: integer
-          example: 1
-        inbox_id:
-          type: integer
-          example: 5
-        api_token:
-          type: string
-          description: Masked; only the last 4 characters are revealed
-          example: '****1234'
-        enabled:
-          type: boolean
-          example: true
-        webhook_url:
-          type: string
-          description: URL to set on this device's Chatwoot inbox so agent replies route back to this device
-          example: 'https://gowa.example.com/chatwoot/webhook/my-device-id'
-        created_at:
-          type: string
-          format: date-time
-        updated_at:
-          type: string
-          format: date-time
     CreateGroupResponse:
       type: object
       properties:
@@ -4218,108 +3386,6 @@ components:
               type: string
               example: Success update group photo
 
-    UserMyGroupItem:
-      type: object
-      description: |
-        One joined group as serialized `whatsmeow/types.GroupInfo`. Embedded structs are flattened; field names stay PascalCase (Go default JSON).
-      properties:
-        JID:
-          type: string
-          example: "120363416355796813@g.us"
-        OwnerJID:
-          type: string
-        OwnerPN:
-          type: string
-        Name:
-          type: string
-        NameSetAt:
-          type: string
-          format: date-time
-        NameSetBy:
-          type: string
-        NameSetByPN:
-          type: string
-        GroupCreated:
-          type: string
-          format: date-time
-        CreatorCountryCode:
-          type: string
-        ParticipantVersionID:
-          type: string
-        ParticipantCount:
-          type: integer
-        Participants:
-          type: array
-          items:
-            $ref: '#/components/schemas/JoinedGroupParticipant'
-        MemberAddMode:
-          type: string
-          example: "admin_add"
-        Suspended:
-          type: boolean
-        AddressingMode:
-          type: string
-        IsLocked:
-          type: boolean
-        IsAnnounce:
-          type: boolean
-        AnnounceVersionID:
-          type: string
-        IsEphemeral:
-          type: boolean
-        DisappearingTimer:
-          type: integer
-        IsIncognito:
-          type: boolean
-        IsJoinApprovalRequired:
-          type: boolean
-        DefaultMembershipApprovalMode:
-          type: string
-        IsParent:
-          type: boolean
-        LinkedParentJID:
-          type: string
-        IsDefaultSubGroup:
-          type: boolean
-        Topic:
-          type: string
-        TopicID:
-          type: string
-        TopicDeleted:
-          type: boolean
-        TopicSetAt:
-          type: string
-          format: date-time
-        TopicSetBy:
-          type: string
-        TopicSetByPN:
-          type: string
-
-    JoinedGroupParticipant:
-      type: object
-      description: Serialized `whatsmeow/types.GroupParticipant` in joined-group list payloads.
-      properties:
-        JID:
-          type: string
-          description: Primary ID for the member (often `@lid`).
-        PhoneNumber:
-          type: string
-          description: User JID string when known (e.g. `628...@s.whatsapp.net`); may be empty in edge cases.
-        LID:
-          type: string
-        IsAdmin:
-          type: boolean
-        IsSuperAdmin:
-          type: boolean
-        DisplayName:
-          type: string
-          description: Set for some anonymous / announcement cases; often empty.
-        Error:
-          type: integer
-        AddRequest:
-          type: object
-          nullable: true
-
     UserGroupResponse:
       type: object
       properties:
@@ -4335,7 +3401,35 @@ components:
             data:
               type: array
               items:
-                $ref: '#/components/schemas/UserMyGroupItem'
+                type: object
+                properties:
+                  JID:
+                    type: string
+                  OwnerJID:
+                    type: string
+                  Name:
+                    type: string
+                  NameSetAt:
+                    type: string
+                  NameSetBy:
+                    type: string
+                  GroupCreated:
+                    type: string
+                  ParticipantVersionID:
+                    type: string
+                  Participants:
+                    type: array
+                    items:
+                      properties:
+                        JID:
+                          type: string
+                        IsAdmin:
+                          type: boolean
+                        IsSuperAdmin:
+                          type: boolean
+                        Error:
+                          type: number
+
 
     UserInfoResponse:
       type: object
@@ -4467,12 +3561,7 @@ components:
                 example: 'Aldino Kemal'
               device:
                 type: string
-                description: Session ID registered via POST /devices (stable across restarts)
-                example: 'org_2'
-              jid:
-                type: string
-                description: WhatsApp JID of the logged-in account (empty until login)
-                example: '628960561XXX@s.whatsapp.net'
+                example: '628960561XXX.0:64@s.whatsapp.net'
 
     # Device Management Schemas (v8)
     DeviceListResponse:
@@ -4504,41 +3593,7 @@ components:
           type: integer
           example: 200
         results:
-          type: object
-          properties:
-            id:
-              type: string
-              example: 'my-device-id'
-            display_name:
-              type: string
-              example: 'John Doe'
-            state:
-              type: string
-              enum: [disconnected, connecting, connected, logged_in]
-              example: 'disconnected'
-            jid:
-              type: string
-              example: '628123456789@s.whatsapp.net'
-            created_at:
-              type: string
-              format: date-time
-              example: '2024-01-01T00:00:00Z'
-            webhook_url:
-              type: string
-              description: Device-specific webhook URL echoed when provided on create
-              example: 'https://device-webhook.example.com/handler'
-            webhook_secret:
-              type: string
-              description: Device-specific webhook secret echoed when provided on create
-              example: 'super-secret-key'
-            webhook_events:
-              type: string
-              description: Device-specific event whitelist echoed when provided on create
-              example: 'message,message.ack'
-            webhook_insecure_skip_verify:
-              type: boolean
-              description: Device-specific TLS verification setting echoed when provided on create
-              example: false
+          $ref: '#/components/schemas/DeviceInfo'
     DeviceInfoResponse:
       type: object
       properties:
@@ -4577,51 +3632,6 @@ components:
             is_logged_in:
               type: boolean
               example: true
-    DeviceLoginResponse:
-      type: object
-      properties:
-        code:
-          type: string
-          example: SUCCESS
-        message:
-          type: string
-          example: Login success
-        status:
-          type: integer
-          example: 200
-        results:
-          type: object
-          properties:
-            device_id:
-              type: string
-              example: 'my-device-id'
-            qr_link:
-              type: string
-              example: 'http://localhost:3000/statics/images/qrcode/scan-qr-b0b7bb43-9a22-455a-814f-5a225c743310.png'
-            qr_duration:
-              type: integer
-              example: 30
-    DeviceLoginWithCodeResponse:
-      type: object
-      properties:
-        code:
-          type: string
-          example: SUCCESS
-        message:
-          type: string
-          example: Login with code started
-        status:
-          type: integer
-          example: 200
-        results:
-          type: object
-          properties:
-            device_id:
-              type: string
-              example: 'my-device-id'
-            pair_code:
-              type: string
-              example: ABCD-1234
     DeviceInfo:
       type: object
       properties:
@@ -4636,7 +3646,7 @@ components:
           example: 'John Doe'
         state:
           type: string
-          enum: [disconnected, connecting, connected, logged_in]
+          enum: [disconnected, connected, logged_in]
           example: 'logged_in'
         jid:
           type: string
@@ -4679,90 +3689,6 @@ components:
             qr_link:
               type: string
               example: 'http://localhost:3000/statics/images/qrcode/scan-qr-b0b7bb43-9a22-455a-814f-5a225c743310.png'
-    PasskeyStatusResponse:
-      type: object
-      properties:
-        code:
-          type: string
-          example: SUCCESS
-        message:
-          type: string
-          example: Passkey pairing status
-        results:
-          type: object
-          properties:
-            device_id:
-              type: string
-              example: device-1
-            status:
-              type: string
-              enum: [none, awaiting_response, awaiting_confirmation]
-              example: awaiting_response
-            challenge:
-              type: object
-              nullable: true
-              description: WebAuthn assertion request options (PublicKeyCredentialRequestOptions JSON, base64url-encoded binary fields)
-              properties:
-                challenge:
-                  type: string
-                  example: dGVzdC1jaGFsbGVuZ2U
-                timeout:
-                  type: integer
-                  example: 60000
-                rpId:
-                  type: string
-                  example: whatsapp.com
-                allowCredentials:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      id:
-                        type: string
-                      type:
-                        type: string
-                        example: public-key
-                      transports:
-                        type: array
-                        items:
-                          type: string
-                userVerification:
-                  type: string
-                  example: required
-            code:
-              type: string
-              description: Pairing confirmation code (set while awaiting confirmation)
-              example: ABCD-EFGH
-            skip_handoff_ux:
-              type: boolean
-              example: false
-    WebAuthnAssertion:
-      type: object
-      description: WebAuthn assertion in PublicKeyCredential.toJSON() format (binary fields base64url-encoded without padding)
-      required: [id, rawId, type, response]
-      properties:
-        id:
-          type: string
-          example: XcnXe2W9me1XZTGii6JI9A
-        rawId:
-          type: string
-          example: XcnXe2W9me1XZTGii6JI9A
-        type:
-          type: string
-          example: public-key
-        response:
-          type: object
-          required: [clientDataJSON, authenticatorData, signature]
-          properties:
-            clientDataJSON:
-              type: string
-            authenticatorData:
-              type: string
-            signature:
-              type: string
-            userHandle:
-              type: string
-              nullable: true
     GenericResponse:
       type: object
       properties:
@@ -4950,48 +3876,6 @@ components:
             role:
               type: string
               example: "subscriber"
-    NewsletterMessagesResponse:
-      type: object
-      properties:
-        code:
-          type: string
-          example: "SUCCESS"
-        message:
-          type: string
-          example: "Success get newsletter messages"
-        results:
-          type: object
-          properties:
-            data:
-              type: array
-              items:
-                $ref: '#/components/schemas/NewsletterMessage'
-    NewsletterMessage:
-      type: object
-      properties:
-        server_id:
-          type: integer
-          example: 123
-        message_id:
-          type: string
-          example: "3EB0XXXXXXXXXXXXXXXX"
-        type:
-          type: string
-          example: "text"
-        timestamp:
-          type: string
-          example: "2026-06-30T10:00:00Z"
-        views_count:
-          type: integer
-          example: 42
-        reaction_counts:
-          type: object
-          additionalProperties:
-            type: integer
-          example: { "😀": 3, "👍": 5 }
-        text:
-          type: string
-          example: "Hello from the channel!"
     MyListContactsResponse:
       type: object
       properties:
@@ -5019,28 +3903,6 @@ components:
           example: "Aldino Kemal"
 
 
-    GroupParticipantRequestItem:
-      type: object
-      properties:
-        jid:
-          type: string
-          description: Requester's JID; often `@lid` until a phone mapping exists locally.
-          example: "84198740205822@lid"
-        phone_number:
-          type: string
-          description: |
-            Digits from the resolved `@s.whatsapp.net` JID when LID→PN mapping is available.
-            Empty when only `@lid` is known — the LID user part is not a phone number and must not be shown here.
-          example: "6289685024091"
-        display_name:
-          type: string
-          description: From saved contact, verified business name, or WhatsApp-supplied display (may be omitted when empty).
-          example: "John Doe"
-        requested_at:
-          type: string
-          format: date-time
-          example: "2026-03-27T23:18:47Z"
-
     GroupParticipantRequestListResponse:
       type: object
       properties:
@@ -5051,10 +3913,26 @@ components:
           type: string
           example: "Success getting list requested participants"
         results:
-          type: array
-          description: Pending join requests for the group (not wrapped in `data`).
-          items:
-            $ref: '#/components/schemas/GroupParticipantRequestItem'
+          type: object
+          properties:
+            data:
+              type: array
+              items:
+                type: object
+                properties:
+                  jid:
+                    type: string
+                    example: "6289685024091@s.whatsapp.net"
+                  phone_number:
+                    type: string
+                    example: "6289685024091"
+                  display_name:
+                    type: string
+                    example: "John Doe"
+                  requested_at:
+                    type: string
+                    format: date-time
+                    example: "2024-10-11T21:27:29+07:00"
     UserCheckResponse:
       type: object
       properties:
@@ -5134,7 +4012,7 @@ components:
                   close_time:
                     type: string
                     example: '18:00'
-
+    
     ChatListResponse:
       type: object
       properties:
@@ -5245,16 +4123,6 @@ components:
           type: string
           example: '6289685028129@s.whatsapp.net'
           description: Sender JID
-        sender_display_name:
-          type: string
-          example: 'Saved Contact'
-          description: >-
-            Human-readable sender label resolved dynamically when this response is produced, not stored with the message.
-            For other senders, it prefers the saved contact full name, then the stored contact push name, business name,
-            JID user part, and raw JID. For the active account, it prefers the device display name (falling back to the
-            stored account push name), account JID user part, account JID, sender JID user part, and raw sender JID.
-            A contact rename can therefore change the label returned for historical messages. `sender_jid` remains the
-            stable sender identifier.
         content:
           type: string
           example: 'Hello, how are you?'
@@ -5272,16 +4140,7 @@ components:
           type: string
           example: 'image'
           nullable: true
-          description: Type of media (image, video, audio, document, etc.). Value `call` indicates a stored incoming call log.
-        reactions:
-          type: array
-          description: Emoji reactions attached to this message
-          items:
-            $ref: '#/components/schemas/ChatReaction'
-        call_metadata:
-          type: string
-          example: '{"call_id":"ABC","auto_rejected":false}'
-          description: JSON string with call details when media_type is `call`. Omitted when not applicable (matches Go json omitempty).
+          description: Type of media (image, video, audio, document, etc.)
         filename:
           type: string
           example: 'photo.jpg'
@@ -5308,36 +4167,33 @@ components:
           example: '2024-01-15T10:30:00Z'
           description: Record last update timestamp
 
-    ChatReaction:
+    LabelChatResponse:
       type: object
       properties:
-        emoji:
+        code:
           type: string
-          example: '👍'
-          description: Emoji used in the reaction
-        sender_jid:
+          example: SUCCESS
+        message:
           type: string
-          example: '628123456789@s.whatsapp.net'
-          description: JID of the user who reacted
-        sender_display_name:
-          type: string
-          example: 'Saved Contact'
-          description: >-
-            Human-readable sender label resolved dynamically when this response is produced, not stored with the reaction.
-            For other senders, it prefers the saved contact full name, then the stored contact push name, business name,
-            JID user part, and raw JID. For the active account, it prefers the device display name (falling back to the
-            stored account push name), account JID user part, account JID, sender JID user part, and raw sender JID.
-            A contact rename can therefore change the label returned for historical reactions. `sender_jid` remains the
-            stable sender identifier.
-        is_from_me:
-          type: boolean
-          example: false
-          description: Whether the reaction was made by the current user
-        timestamp:
-          type: string
-          format: date-time
-          example: '2024-01-15T10:31:00Z'
-          description: When the reaction was received
+          example: Chat labeled successfully with label 'Important'
+        results:
+          type: object
+          properties:
+            status:
+              type: string
+              example: success
+            message:
+              type: string
+              example: Chat labeled successfully with label 'Important'
+            chat_jid:
+              type: string
+              example: '6289685028129@s.whatsapp.net'
+            label_id:
+              type: string
+              example: 'label_123'
+            labeled:
+              type: boolean
+              example: true
 
     PinChatResponse:
       type: object
