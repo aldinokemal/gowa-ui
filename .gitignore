@@ -25,3 +25,6 @@ dist-ssr
 
 # local planning docs
 docs/superpowers/
+.env
+.env.*
+!.env.example
