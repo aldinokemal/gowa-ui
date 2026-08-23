@@ -269,6 +269,13 @@ function buildExampleFromSchema(
 
 // ── Snippet builders ───────────────────────────────────────────────────────
 
+/** A single field extracted from a multipart/form-data or urlencoded schema */
+interface FormField {
+  name: string
+  isBinary: boolean   // format: binary → file upload
+  example: string     // best-effort example value as a string
+}
+
 interface SnippetContext {
   baseUrl: string
   filledPath: string
@@ -279,6 +286,8 @@ interface SnippetContext {
   contentType: string | null
   isFormData: boolean
   bodyExample: unknown
+  /** Populated when isFormData is true; used by snippet generators */
+  formFields: FormField[]
 }
 
 function buildSnippetContext(
@@ -313,6 +322,7 @@ function buildSnippetContext(
   let contentType: string | null = null
   let isFormData = false
   let bodyExample: unknown = null
+  let formFields: FormField[] = []
 
   if (op.requestBody?.content) {
     const ct = Object.keys(op.requestBody.content)[0]
@@ -321,10 +331,39 @@ function buildSnippetContext(
       isFormData = ct.includes('form')
       const media = op.requestBody.content[ct]
       bodyExample = media?.example ?? buildExampleFromSchema(media?.schema, components)
+
+      if (isFormData && media?.schema) {
+        const resolved = resolveSchema(media.schema, components) ?? media.schema
+        for (const [fname, fschema] of Object.entries(resolved.properties ?? {})) {
+          const isBinary = fschema.format === 'binary'
+          // Use schema example, fall back to a sensible placeholder
+          let example: string
+          if (fschema.example !== undefined) {
+            example = String(fschema.example)
+          } else if (isBinary) {
+            example = `/path/to/${fname}`
+          } else if (fschema.type === 'boolean') {
+            example = 'false'
+          } else if (fschema.type === 'integer' || fschema.type === 'number') {
+            example = '0'
+          } else {
+            example = `<${fname}>`
+          }
+          // Surface required fields first, then optional
+          formFields.push({ name: fname, isBinary, example })
+        }
+        // Required fields first
+        const req = new Set(resolved.required ?? [])
+        formFields.sort((a, b) => {
+          const ar = req.has(a.name) ? 0 : 1
+          const br = req.has(b.name) ? 0 : 1
+          return ar - br
+        })
+      }
     }
   }
 
-  return { baseUrl: resolvedBase, filledPath, url, method: (op as { method?: HttpMethod }).method ?? 'get', headerParams, hasSecurity, contentType, isFormData, bodyExample }
+  return { baseUrl: resolvedBase, filledPath, url, method: (op as { method?: HttpMethod }).method ?? 'get', headerParams, hasSecurity, contentType, isFormData, bodyExample, formFields }
 }
 
 function snippetCurl(ctx: SnippetContext, method: HttpMethod): string {
@@ -339,8 +378,15 @@ function snippetCurl(ctx: SnippetContext, method: HttpMethod): string {
     parts.push(`  -H 'Authorization: Basic <base64(user:pass)>'`)
   }
   if (ctx.contentType) {
-    parts.push(`  -H 'Content-Type: ${ctx.contentType}'`)
-    if (!ctx.isFormData) {
+    if (ctx.isFormData) {
+      // Let curl set the multipart boundary automatically — do NOT emit Content-Type manually.
+      // Each field: text values use -F key=value, binary (file upload) uses -F key=@/path/to/file
+      for (const f of ctx.formFields) {
+        const flag = f.isBinary ? `-F '${f.name}=@${f.example}'` : `-F '${f.name}=${f.example}'`
+        parts.push(`  ${flag}`)
+      }
+    } else {
+      parts.push(`  -H 'Content-Type: ${ctx.contentType}'`)
       parts.push(`  -d '${JSON.stringify(ctx.bodyExample, null, 2)}'`)
     }
   }
@@ -354,22 +400,51 @@ function snippetFetch(ctx: SnippetContext, method: HttpMethod): string {
     headers[p.name] = String(val)
   }
   if (ctx.hasSecurity) headers['Authorization'] = 'Basic <base64(user:pass)>'
+  // Do NOT set Content-Type for multipart — the browser sets it with boundary
   if (ctx.contentType && !ctx.isFormData) headers['Content-Type'] = ctx.contentType
 
   const headersStr = Object.entries(headers)
     .map(([k, v]) => `    '${k}': '${v}'`)
     .join(',\n')
 
-  const bodyLine =
-    ctx.contentType && !ctx.isFormData
-      ? `\n  body: JSON.stringify(${JSON.stringify(ctx.bodyExample, null, 2).replace(/\n/g, '\n  ')}),`
-      : ''
+  let bodySection = ''
+  if (ctx.contentType) {
+    if (ctx.isFormData) {
+      const appendLines = ctx.formFields.map((f) => {
+        if (f.isBinary) {
+          // File input from a browser <input type="file"> element
+          return `form.append('${f.name}', fileInput.files[0]) // File: ${f.example}`
+        }
+        return `form.append('${f.name}', '${f.example}')`
+      })
+      bodySection = `
+const form = new FormData()
+${appendLines.join('\n')}
+`
+    } else {
+      bodySection = `\n  body: JSON.stringify(${JSON.stringify(ctx.bodyExample, null, 2).replace(/\n/g, '\n  ')}),`
+    }
+  }
+
+  if (ctx.isFormData) {
+    return `${bodySection}
+const response = await fetch('${ctx.url}', {
+  method: '${method.toUpperCase()}',
+  headers: {
+${headersStr}
+  },
+  body: form,
+})
+
+const data = await response.json()
+console.log(data)`
+  }
 
   return `const response = await fetch('${ctx.url}', {
   method: '${method.toUpperCase()}',
   headers: {
 ${headersStr}
-  },${bodyLine}
+  },${bodySection}
 })
 
 const data = await response.json()
@@ -383,14 +458,42 @@ function snippetAxios(ctx: SnippetContext, method: HttpMethod): string {
     headers[p.name] = String(val)
   }
   if (ctx.hasSecurity) headers['Authorization'] = 'Basic <base64(user:pass)>'
+  // Axios sets Content-Type with boundary automatically for FormData
   if (ctx.contentType && !ctx.isFormData) headers['Content-Type'] = ctx.contentType
 
   const headersStr = Object.entries(headers)
     .map(([k, v]) => `    '${k}': '${v}'`)
     .join(',\n')
 
+  if (ctx.isFormData) {
+    const appendLines = ctx.formFields.map((f) => {
+      if (f.isBinary) {
+        return `form.append('${f.name}', fs.createReadStream('${f.example}'))`
+      }
+      return `form.append('${f.name}', '${f.example}')`
+    })
+
+    return `import axios from 'axios'
+import FormData from 'form-data'
+import fs from 'fs'
+
+const form = new FormData()
+${appendLines.join('\n')}
+
+const { data } = await axios({
+  method: '${method}',
+  url: '${ctx.url}',
+  headers: {
+${headersStr ? headersStr + ',\n' : ''}    ...form.getHeaders(),
+  },
+  data: form,
+})
+
+console.log(data)`
+  }
+
   const dataLine =
-    ctx.contentType && !ctx.isFormData
+    ctx.contentType
       ? `\n  data: ${JSON.stringify(ctx.bodyExample, null, 2).replace(/\n/g, '\n  ')},`
       : ''
 
@@ -408,18 +511,64 @@ console.log(data)`
 }
 
 function snippetGo(ctx: SnippetContext, method: HttpMethod): string {
-  const bodyVar = ctx.contentType && !ctx.isFormData
-    ? `\tbody := strings.NewReader(\`${JSON.stringify(ctx.bodyExample, null, 2)}\`)`
-    : '\tbody := http.NoBody'
-  const bodyImport = ctx.contentType && !ctx.isFormData ? '\t"strings"' : ''
-
   const headerLines: string[] = []
   for (const p of ctx.headerParams) {
     const val = p.example ?? p.schema?.example ?? `<${p.name}>`
     headerLines.push(`\treq.Header.Set("${p.name}", "${String(val)}")`)
   }
   if (ctx.hasSecurity) headerLines.push('\treq.Header.Set("Authorization", "Basic <base64(user:pass)>")')
-  if (ctx.contentType && !ctx.isFormData) headerLines.push(`\treq.Header.Set("Content-Type", "${ctx.contentType}")`)
+
+  if (ctx.isFormData) {
+    const textFields = ctx.formFields.filter((f) => !f.isBinary)
+    const fileFields = ctx.formFields.filter((f) => f.isBinary)
+
+    const textWrites = textFields.map(
+      (f) => `\t_ = w.WriteField("${f.name}", "${f.example}")`,
+    )
+    const fileWrites = fileFields.map(
+      (f) =>
+        `\tfw, _ := w.CreateFormFile("${f.name}", filepath.Base("${f.example}"))\n` +
+        `\tf, _ := os.Open("${f.example}")\n` +
+        `\t_, _ = io.Copy(fw, f)\n` +
+        `\tf.Close()`,
+    )
+    const bodySetup = [...textWrites, ...fileWrites].join('\n')
+
+    return `package main
+
+import (
+\t"bytes"
+\t"fmt"
+\t"io"
+\t"mime/multipart"
+\t"net/http"${fileFields.length > 0 ? '\n\t"os"\n\t"path/filepath"' : ''}
+)
+
+func main() {
+\tvar buf bytes.Buffer
+\tw := multipart.NewWriter(&buf)
+${bodySetup}
+\tw.Close()
+
+\treq, _ := http.NewRequest("${method.toUpperCase()}", "${ctx.url}", &buf)
+\treq.Header.Set("Content-Type", w.FormDataContentType())
+${headerLines.join('\n')}
+\tclient := &http.Client{}
+\tresp, _ := client.Do(req)
+\tdefer resp.Body.Close()
+\tb, _ := io.ReadAll(resp.Body)
+\tfmt.Println(string(b))
+}`
+  }
+
+  const bodyVar = ctx.contentType
+    ? `\tbody := strings.NewReader(\`${JSON.stringify(ctx.bodyExample, null, 2)}\`)`
+    : '\tbody := http.NoBody'
+  const bodyImport = ctx.contentType ? '\t"strings"' : ''
+
+  if (ctx.contentType && !ctx.isFormData) {
+    headerLines.push(`\treq.Header.Set("Content-Type", "${ctx.contentType}")`)
+  }
 
   return `package main
 
@@ -448,14 +597,43 @@ function snippetPython(ctx: SnippetContext, method: HttpMethod): string {
     headers[p.name] = String(val)
   }
   if (ctx.hasSecurity) headers['Authorization'] = 'Basic <base64(user:pass)>'
+  // requests sets Content-Type with boundary automatically for multipart
   if (ctx.contentType && !ctx.isFormData) headers['Content-Type'] = ctx.contentType
 
   const headersStr = JSON.stringify(headers, null, 4)
+
+  if (ctx.isFormData) {
+    const textFields = ctx.formFields.filter((f) => !f.isBinary)
+    const fileFields = ctx.formFields.filter((f) => f.isBinary)
+
+    const dataEntries = textFields.map((f) => `    '${f.name}': '${f.example}'`).join(',\n')
+    const filesEntries = fileFields.map((f) => `    '${f.name}': open('${f.example}', 'rb')`).join(',\n')
+
+    const dataArg = dataEntries ? `\ndata = {\n${dataEntries}\n}\n` : ''
+    const filesArg = filesEntries ? `\nfiles = {\n${filesEntries}\n}\n` : ''
+    const callArgs = [
+      dataEntries ? 'data=data' : '',
+      filesEntries ? 'files=files' : '',
+    ].filter(Boolean).join(', ')
+
+    return `import requests
+
+headers = ${headersStr}
+${dataArg}${filesArg}
+response = requests.${method}(
+    "${ctx.url}",
+    headers=headers,
+    ${callArgs}
+)
+
+print(response.json())`
+  }
+
   const jsonLine =
-    ctx.contentType && !ctx.isFormData
+    ctx.contentType
       ? `\njson_data = ${JSON.stringify(ctx.bodyExample, null, 4)}\n`
       : ''
-  const bodyArg = ctx.contentType && !ctx.isFormData ? ', json=json_data' : ''
+  const bodyArg = ctx.contentType ? ', json=json_data' : ''
 
   return `import requests
 
@@ -470,20 +648,49 @@ print(response.json())`
 }
 
 function snippetPhp(ctx: SnippetContext, method: HttpMethod): string {
-  const headerLines: string[] = [
-    `    'Accept: application/json'`,
-  ]
+  const headerLines: string[] = [`    'Accept: application/json'`]
   for (const p of ctx.headerParams) {
     const val = p.example ?? p.schema?.example ?? `<${p.name}>`
     headerLines.push(`    '${p.name}: ${String(val)}'`)
   }
   if (ctx.hasSecurity) headerLines.push(`    'Authorization: Basic <base64(user:pass)>'`)
+  // Do NOT set Content-Type manually for multipart — curl handles the boundary
   if (ctx.contentType && !ctx.isFormData) headerLines.push(`    'Content-Type: ${ctx.contentType}'`)
 
-  const bodyOption =
-    ctx.contentType && !ctx.isFormData
-      ? `\nCURLOPT_POSTFIELDS => json_encode(${JSON.stringify(ctx.bodyExample, null, 4)}),`
-      : ''
+  if (ctx.isFormData) {
+    const fieldEntries = ctx.formFields.map((f) => {
+      if (f.isBinary) {
+        return `    '${f.name}' => new CURLFile('${f.example}'),`
+      }
+      return `    '${f.name}' => '${f.example}',`
+    })
+
+    return `<?php
+
+$ch = curl_init();
+
+curl_setopt_array($ch, [
+    CURLOPT_URL => '${ctx.url}',
+    CURLOPT_RETURNTRANSFER => true,
+    CURLOPT_CUSTOMREQUEST => '${method.toUpperCase()}',
+    CURLOPT_HTTPHEADER => [
+${headerLines.join(',\n')}
+    ],
+    CURLOPT_POSTFIELDS => [
+${fieldEntries.join('\n')}
+    ],
+]);
+
+$response = curl_exec($ch);
+curl_close($ch);
+
+$data = json_decode($response, true);
+var_dump($data);`
+  }
+
+  const bodyOption = ctx.contentType
+    ? `\nCURLOPT_POSTFIELDS => json_encode(${JSON.stringify(ctx.bodyExample, null, 4)}),`
+    : ''
 
   return `<?php
 
@@ -514,8 +721,44 @@ function snippetRuby(ctx: SnippetContext, method: HttpMethod): string {
   if (ctx.hasSecurity) headerLines.push(`  'Authorization' => 'Basic <base64(user:pass)>'`)
   if (ctx.contentType && !ctx.isFormData) headerLines.push(`  'Content-Type' => '${ctx.contentType}'`)
 
+  if (ctx.isFormData) {
+    const textFields = ctx.formFields.filter((f) => !f.isBinary)
+    const fileFields = ctx.formFields.filter((f) => f.isBinary)
+
+    const textEntries = textFields.map((f) => `  '${f.name}' => '${f.example}'`).join(",\n")
+    const fileEntries = fileFields.map(
+      (f) =>
+        `  '${f.name}' => UploadIO.new('${f.example}', 'application/octet-stream')`,
+    ).join(",\n")
+    const allEntries = [textEntries, fileEntries].filter(Boolean).join(",\n")
+
+    return `require 'net/http'
+require 'net/http/post/multipart'
+require 'uri'
+
+uri = URI('${ctx.url}')
+http = Net::HTTP.new(uri.host, uri.port)
+http.use_ssl = uri.scheme == 'https'
+
+request = Net::HTTP::${method.charAt(0).toUpperCase() + method.slice(1)}.new(uri.request_uri)
+request.set_form(
+  [
+${allEntries}
+  ],
+  'multipart/form-data'
+)
+
+headers = {
+${headerLines.join(",\n")}
+}
+headers.each { |k, v| request[k] = v }
+
+response = http.request(request)
+puts JSON.parse(response.body)`
+  }
+
   const bodyLine =
-    ctx.contentType && !ctx.isFormData
+    ctx.contentType
       ? `\nbody = ${JSON.stringify(ctx.bodyExample, null, 2).replace(/\n/g, '\n')}.to_json\n`
       : ''
 
@@ -547,8 +790,44 @@ function snippetRust(ctx: SnippetContext, method: HttpMethod): string {
     insertLines.push(`        .header("Authorization", "Basic <base64(user:pass)>")`)
   }
 
+  if (ctx.isFormData) {
+    const formParts = ctx.formFields.map((f) => {
+      if (f.isBinary) {
+        return (
+          `    let file_bytes = std::fs::read("${f.example}")?;\n` +
+          `    let part_${f.name} = reqwest::blocking::multipart::Part::bytes(file_bytes)\n` +
+          `        .file_name("${f.example.split('/').pop() ?? f.name}")\n` +
+          `        .mime_str("application/octet-stream")?;\n` +
+          `    let form = form.part("${f.name}", part_${f.name});`
+        )
+      }
+      return `    let form = form.text("${f.name}", "${f.example}");`
+    })
+
+    return `use reqwest::blocking::Client;
+use std::error::Error;
+
+fn main() -> Result<(), Box<dyn Error>> {
+    let client = Client::new();
+
+    let form = reqwest::blocking::multipart::Form::new();
+${formParts.join('\n')}
+
+    let response = client
+        .${method}("${ctx.url}")
+        .header("Accept", "application/json")
+${insertLines.join('\n')}
+        .multipart(form)
+        .send()?;
+
+    let body = response.text()?;
+    println!("{}", body);
+    Ok(())
+}`
+  }
+
   const bodyLine =
-    ctx.contentType && !ctx.isFormData
+    ctx.contentType
       ? `        .header("Content-Type", "${ctx.contentType}")\n        .body(r#"${JSON.stringify(ctx.bodyExample, null, 2)}"#)?`
       : `        .body(reqwest::Body::default())?`
 

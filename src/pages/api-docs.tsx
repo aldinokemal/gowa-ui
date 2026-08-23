@@ -1,53 +1,74 @@
-import { useEffect, useState } from 'react'
+import { useMemo } from 'react'
 import { load as yamlLoad } from 'js-yaml'
 import SwaggerUI from 'swagger-ui-react'
 import 'swagger-ui-react/swagger-ui.css'
-import { Loader2 } from 'lucide-react'
 import { PageHeader } from '@/components/shared/page-header'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { OpenAPIReference } from '@/features/api-docs/openapi-reference'
 import { useConnection } from '@/stores/connection'
 
-const OPENAPI_URL =
-  'https://raw.githubusercontent.com/aldinokemal/go-whatsapp-web-multidevice/main/docs/openapi.yaml'
+// Bundled at build time — commit 7ee1ead9. No runtime network request to GitHub.
+// Vite inlines this as a plain string via the ?raw suffix; js-yaml parses it once.
+import rawSpec from '@/assets/openapi.yaml?raw'
 
-type LoadState = 'loading' | 'success' | 'error'
+const BASE_SPEC = yamlLoad(rawSpec) as Record<string, unknown>
+
+/**
+ * Patch the OpenAPI `servers` array so code samples and Swagger UI hit the
+ * currently-connected backend.
+ *
+ * The backend registers `/health` at the *root* — it is intentionally NOT
+ * prefixed by APP_BASE_PATH.  Everything else is served under the base path.
+ *
+ * We therefore emit two server entries when a non-empty base path is detected:
+ *   1. { url: baseUrl }           — used for all prefixed routes
+ *   2. { url: origin }            — used for /health (root-only route)
+ *
+ * When baseUrl equals the origin (no extra path prefix), a single entry is
+ * sufficient because every path — including /health — is already at root.
+ */
+function patchServers(
+  spec: Record<string, unknown>,
+  baseUrl: string | null,
+): Record<string, unknown> {
+  if (!baseUrl) {
+    // No connection yet — keep the spec's own server entry unchanged so
+    // Swagger UI can still show something useful.
+    return spec
+  }
+
+  // Normalise: strip trailing slash
+  const base = baseUrl.replace(/\/$/, '')
+
+  let servers: Array<{ url: string; description: string }>
+
+  try {
+    const u = new URL(base)
+    const origin = u.origin // e.g. http://localhost:3000
+
+    if (base === origin) {
+      // No extra path prefix — /health is already at root.
+      servers = [{ url: base, description: 'Connected server' }]
+    } else {
+      // APP_BASE_PATH is in play.  Prefixed routes use `base`; /health uses
+      // the bare origin so it is not inadvertently prefixed.
+      servers = [
+        { url: base, description: 'Connected server (prefixed routes)' },
+        { url: origin, description: 'Connected server (root-only routes e.g. /health)' },
+      ]
+    }
+  } catch {
+    // Relative or opaque URL — safe fallback, single entry.
+    servers = [{ url: base, description: 'Connected server' }]
+  }
+
+  return { ...spec, servers }
+}
 
 export default function APIDocsPage() {
   const baseUrl = useConnection((state) => state.baseUrl)
 
-  const [loadState, setLoadState] = useState<LoadState>('loading')
-  const [spec, setSpec] = useState<object | null>(null)
-  const [errorMsg, setErrorMsg] = useState('')
-
-  useEffect(() => {
-    setLoadState('loading')
-
-    fetch(OPENAPI_URL)
-      .then((res) => {
-        if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`)
-        return res.text()
-      })
-      .then((yamlText) => {
-        const parsed = yamlLoad(yamlText)
-        if (!parsed || typeof parsed !== 'object') {
-          throw new Error('Spec parsed to a non-object value')
-        }
-
-        // Override servers with the currently connected URL
-        const patched = {
-          ...(parsed as Record<string, unknown>),
-          servers: baseUrl ? [{ url: baseUrl, description: 'Connected server' }] : [],
-        }
-
-        setSpec(patched)
-        setLoadState('success')
-      })
-      .catch((err: unknown) => {
-        setErrorMsg(err instanceof Error ? err.message : String(err))
-        setLoadState('error')
-      })
-  }, [baseUrl])
+  const spec = useMemo(() => patchServers(BASE_SPEC, baseUrl), [baseUrl])
 
   return (
     <div className="flex flex-col gap-4">
@@ -56,37 +77,25 @@ export default function APIDocsPage() {
         description="Interactive OpenAPI reference for go-whatsapp-web-multidevice."
       />
 
-      {loadState === 'loading' && (
-        <div className="flex items-center gap-2 py-16 text-muted-foreground">
-          <Loader2 className="size-5 animate-spin" />
-          <span className="text-sm">Fetching OpenAPI spec…</span>
-        </div>
-      )}
+      <Tabs defaultValue="reference">
+        <TabsList>
+          <TabsTrigger value="reference">Reference</TabsTrigger>
+          <TabsTrigger value="swagger">Swagger UI</TabsTrigger>
+        </TabsList>
 
-      {loadState === 'error' && (
-        <div className="rounded-md border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-          Could not load API spec: {errorMsg}
-        </div>
-      )}
+        <TabsContent value="reference" className="mt-4">
+          <OpenAPIReference
+            spec={spec as Parameters<typeof OpenAPIReference>[0]['spec']}
+            baseUrl={baseUrl}
+          />
+        </TabsContent>
 
-      {loadState === 'success' && spec && (
-        <Tabs defaultValue="reference">
-          <TabsList>
-            <TabsTrigger value="reference">Reference</TabsTrigger>
-            <TabsTrigger value="swagger">Swagger UI</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="reference" className="mt-4">
-            <OpenAPIReference spec={spec as Parameters<typeof OpenAPIReference>[0]['spec']} baseUrl={baseUrl} />
-          </TabsContent>
-
-          <TabsContent value="swagger" className="mt-4">
-            <div className="overflow-x-auto rounded-lg border bg-white dark:bg-white">
-              <SwaggerUI spec={spec} docExpansion="list" defaultModelsExpandDepth={-1} />
-            </div>
-          </TabsContent>
-        </Tabs>
-      )}
+        <TabsContent value="swagger" className="mt-4">
+          <div className="overflow-x-auto rounded-lg border bg-white dark:bg-white">
+            <SwaggerUI spec={spec} docExpansion="list" defaultModelsExpandDepth={-1} />
+          </div>
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }
