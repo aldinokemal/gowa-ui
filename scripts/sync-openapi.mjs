@@ -90,6 +90,25 @@ let missing = 0
 
 const manifest = {} // tag → filename, populated for registry generation
 
+// Seed manifest from YAML files already on disk so that partial runs
+// (--latest-only, --limit N) don't erase existing versions from the registry.
+for (const entry of fs.readdirSync(OUT_DIR)) {
+  if (!entry.endsWith('.yaml')) continue
+  // Reverse-map filename → tag: strip the .yaml suffix and un-sanitize
+  // underscores back to the original tag characters where unambiguous.
+  // We store the raw filename; the tag is derived by reading the header comment.
+  const filePath = path.join(OUT_DIR, entry)
+  const firstLine = fs.readFileSync(filePath, 'utf8').split('\n')[0]
+  // Header format: "# Bundled at build time — tag <tag>"
+  const match = firstLine.match(/^# Bundled at build time — tag (.+)$/)
+  if (match) {
+    const existingTag = match[1].trim()
+    if (!manifest[existingTag]) {
+      manifest[existingTag] = entry
+    }
+  }
+}
+
 for (const release of releases) {
   const tag = release.tag_name
   const filename = `${sanitizeTag(tag)}.yaml`
