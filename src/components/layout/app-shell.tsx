@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import {
+  BookOpenText,
   LayoutDashboard,
   Loader2,
   Menu,
@@ -46,6 +47,12 @@ const navGroups = [
     items: [
       { to: '/misc', label: 'Channels & Calls', icon: Wrench },
       { to: '/settings', label: 'Settings', icon: Settings },
+    ],
+  },
+  {
+    label: 'Docs',
+    items: [
+      { to: '/api-docs', label: 'API Documentation', icon: BookOpenText },
     ],
   },
 ]

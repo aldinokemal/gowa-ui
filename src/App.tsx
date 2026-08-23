@@ -14,6 +14,7 @@ import GroupsPage from '@/pages/groups'
 import MessagingPage from '@/pages/messaging'
 import MiscPage from '@/pages/misc'
 import SettingsPage from '@/pages/settings'
+import APIDocsPage from './pages/api-docs'
 
 function useBootstrap() {
   const queryClient = useQueryClient()
@@ -73,6 +74,7 @@ function App() {
         <Route path="/account" element={<AccountPage />} />
         <Route path="/misc" element={<MiscPage />} />
         <Route path="/settings" element={<SettingsPage />} />
+        <Route path="/api-docs" element={<APIDocsPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
