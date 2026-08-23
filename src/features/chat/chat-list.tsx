@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Switch } from '@/components/ui/switch'
 import { chatListQueryKey } from '@/features/chat/device-scope'
+import { chatDisplayName } from '@/features/chat/display-name'
 import { formatDate, isZeroTime } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
@@ -90,11 +91,11 @@ export function ChatList({
                   )}
                 >
                   <span className="bg-accent font-heading text-accent-foreground flex size-9 shrink-0 items-center justify-center rounded-full text-sm font-semibold">
-                    {(chat.name || chat.jid).slice(0, 1).toUpperCase()}
+                    {chatDisplayName(chat).slice(0, 1).toUpperCase()}
                   </span>
                   <span className="flex min-w-0 flex-col">
                     <span className="w-full truncate text-sm font-medium">
-                      {chat.name || chat.jid}
+                      {chatDisplayName(chat)}
                     </span>
                     <span className="text-muted-foreground w-full truncate text-xs">
                       {isZeroTime(chat.last_message_time)

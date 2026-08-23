@@ -19,6 +19,7 @@ export interface Pagination {
 export interface ReactionInfo {
   emoji: string
   sender_jid: string
+  sender_display_name?: string
   is_from_me: boolean
   timestamp: string
 }
@@ -27,6 +28,7 @@ export interface MessageInfo {
   id: string
   chat_jid: string
   sender_jid: string
+  sender_display_name?: string
   content: string
   timestamp: string
   is_from_me: boolean
