@@ -14,9 +14,16 @@ export function SendFileForm() {
   const jid = useRecipientJid()
   const [source, setSource] = useState<FileOrUrl>({ url: '' })
   const [caption, setCaption] = useState('')
-  const { draft, patch } = useScheduleDraft()
+  const { draft, patch, reset: resetSchedule } = useScheduleDraft()
 
-  const mutation = useActionMutation(sendFile, { successMessage: 'File sent' })
+  const mutation = useActionMutation(sendFile, {
+    successMessage: 'File sent',
+    onSuccess: () => {
+      setSource({ url: '' })
+      setCaption('')
+      resetSchedule()
+    },
+  })
 
   const payload = {
     phone: jid,

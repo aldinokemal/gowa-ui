@@ -212,19 +212,20 @@ export function ScheduleFields({
   draft: ScheduleDraft
   patch: (change: Partial<ScheduleDraft>) => void
 }) {
-  const [enabled, setEnabled] = useState(Boolean(draft.scheduled_at))
+  /** Derived so clearing the draft — after a send — also collapses the panel. */
+  const enabled = Boolean(draft.scheduled_at)
   const localTimezone = useMemo(() => draft.timezone || browserTimezone(), [draft.timezone])
   const recurrence = draft.recurrence || 'once'
   const now = new Date()
   const firstSend = parseIso(draft.scheduled_at)
 
   const enable = (value: boolean) => {
-    setEnabled(value)
-    if (value && !draft.scheduled_at) {
+    if (value) {
       const initial = new Date(Date.now() + 10 * 60_000)
       patch({ scheduled_at: initial.toISOString(), timezone: localTimezone })
+    } else {
+      patch({ scheduled_at: undefined, end_at: undefined, recurrence: 'once' })
     }
-    if (!value) patch({ scheduled_at: undefined, end_at: undefined, recurrence: 'once' })
   }
 
   const changeRecurrence = (value: ScheduleDraft['recurrence']) => {

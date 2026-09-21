@@ -5,8 +5,13 @@ export function browserTimezone() {
   return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
 }
 
+function emptyDraft(): ScheduleFields {
+  return { timezone: browserTimezone(), recurrence: 'once' }
+}
+
 export function useScheduleDraft() {
-  const [draft, setDraft] = useState<ScheduleFields>({ timezone: browserTimezone(), recurrence: 'once' })
+  const [draft, setDraft] = useState<ScheduleFields>(emptyDraft)
   const patch = (change: Partial<ScheduleFields>) => setDraft((current) => ({ ...current, ...change }))
-  return { draft, patch }
+  const reset = () => setDraft(emptyDraft())
+  return { draft, patch, reset }
 }

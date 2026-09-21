@@ -13,9 +13,16 @@ export function SendAudioForm() {
   const jid = useRecipientJid()
   const [source, setSource] = useState<FileOrUrl>({ url: '' })
   const [ptt, setPtt] = useState(false)
-  const { draft, patch } = useScheduleDraft()
+  const { draft, patch, reset: resetSchedule } = useScheduleDraft()
 
-  const mutation = useActionMutation(sendAudio, { successMessage: 'Audio sent' })
+  const mutation = useActionMutation(sendAudio, {
+    successMessage: 'Audio sent',
+    onSuccess: () => {
+      setSource({ url: '' })
+      setPtt(false)
+      resetSchedule()
+    },
+  })
 
   const payload = {
     phone: jid,

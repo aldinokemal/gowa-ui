@@ -13,9 +13,16 @@ export function SendLocationForm() {
   const jid = useRecipientJid()
   const [latitude, setLatitude] = useState('')
   const [longitude, setLongitude] = useState('')
-  const { draft, patch } = useScheduleDraft()
+  const { draft, patch, reset: resetSchedule } = useScheduleDraft()
 
-  const mutation = useActionMutation(sendLocation, { successMessage: 'Location sent' })
+  const mutation = useActionMutation(sendLocation, {
+    successMessage: 'Location sent',
+    onSuccess: () => {
+      setLatitude('')
+      setLongitude('')
+      resetSchedule()
+    },
+  })
 
   const payload = {
     phone: jid,

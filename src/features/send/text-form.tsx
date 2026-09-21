@@ -14,9 +14,16 @@ export function SendTextForm() {
   const jid = useRecipientJid()
   const [message, setMessage] = useState('')
   const [replyId, setReplyId] = useState('')
-  const { draft, patch } = useScheduleDraft()
+  const { draft, patch, reset: resetSchedule } = useScheduleDraft()
 
-  const mutation = useActionMutation(sendText, { successMessage: 'Message sent' })
+  const mutation = useActionMutation(sendText, {
+    successMessage: 'Message sent',
+    onSuccess: () => {
+      setMessage('')
+      setReplyId('')
+      resetSchedule()
+    },
+  })
 
   const payload = {
     phone: jid,

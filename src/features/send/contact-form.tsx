@@ -13,9 +13,16 @@ export function SendContactForm() {
   const jid = useRecipientJid()
   const [contactName, setContactName] = useState('')
   const [contactPhone, setContactPhone] = useState('')
-  const { draft, patch } = useScheduleDraft()
+  const { draft, patch, reset: resetSchedule } = useScheduleDraft()
 
-  const mutation = useActionMutation(sendContact, { successMessage: 'Contact sent' })
+  const mutation = useActionMutation(sendContact, {
+    successMessage: 'Contact sent',
+    onSuccess: () => {
+      setContactName('')
+      setContactPhone('')
+      resetSchedule()
+    },
+  })
 
   const payload = {
     phone: jid,
