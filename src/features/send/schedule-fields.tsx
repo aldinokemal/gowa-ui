@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { CalendarIcon, ChevronsUpDownIcon, XIcon } from 'lucide-react'
+import { CalendarIcon, ChevronsUpDownIcon, InfoIcon, XIcon } from 'lucide-react'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -22,6 +22,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import type { ScheduleFields } from '@/api/send'
 import { browserTimezone } from '@/features/send/use-schedule-draft'
 
@@ -224,7 +225,12 @@ export function ScheduleFields({
       const initial = new Date(Date.now() + 10 * 60_000)
       patch({ scheduled_at: initial.toISOString(), timezone: localTimezone })
     } else {
-      patch({ scheduled_at: undefined, end_at: undefined, recurrence: 'once' })
+      patch({
+        scheduled_at: undefined,
+        end_at: undefined,
+        occurrence_limit: undefined,
+        recurrence: 'once',
+      })
     }
   }
 
@@ -233,6 +239,8 @@ export function ScheduleFields({
       recurrence: value,
       weekdays: value === 'weekly' ? draft.weekdays : undefined,
       day_of_month: value === 'monthly' ? draft.day_of_month : undefined,
+      end_at: value === 'once' ? undefined : draft.end_at,
+      occurrence_limit: value === 'once' ? undefined : draft.occurrence_limit,
     })
   }
 
@@ -325,25 +333,46 @@ export function ScheduleFields({
             </div>
           )}
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            <DateTimeField
-              id="schedule-end"
-              label="End date (optional)"
-              value={draft.end_at}
-              onChange={(iso) => patch({ end_at: iso })}
-              min={firstSend && firstSend > now ? firstSend : now}
-            />
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="schedule-count">Occurrences (optional)</Label>
-              <Input
-                id="schedule-count"
-                type="number"
-                min={1}
-                value={draft.occurrence_limit ?? ''}
-                onChange={(event) =>
-                  patch({ occurrence_limit: Number(event.target.value) || undefined })
-                }
-              />
-            </div>
+            {recurrence !== 'once' && (
+              <>
+                <DateTimeField
+                  id="schedule-end"
+                  label="End date (optional)"
+                  value={draft.end_at}
+                  onChange={(iso) => patch({ end_at: iso })}
+                  min={firstSend && firstSend > now ? firstSend : now}
+                />
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center gap-1.5">
+                    <Label htmlFor="schedule-count">Occurrences (optional)</Label>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          type="button"
+                          aria-label="What are occurrences?"
+                          className="text-muted-foreground hover:text-foreground focus-visible:ring-ring/50 rounded-full outline-none focus-visible:ring-3"
+                        >
+                          <InfoIcon className="size-3.5" />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        Stop the schedule after this many sends. Leave it empty to keep repeating
+                        until the end date, or until you pause it.
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
+                  <Input
+                    id="schedule-count"
+                    type="number"
+                    min={1}
+                    value={draft.occurrence_limit ?? ''}
+                    onChange={(event) =>
+                      patch({ occurrence_limit: Number(event.target.value) || undefined })
+                    }
+                  />
+                </div>
+              </>
+            )}
             <TimezoneField value={localTimezone} onChange={(zone) => patch({ timezone: zone })} />
           </div>
           <p className="text-muted-foreground text-xs">
