@@ -1,3 +1,4 @@
+import type { Pagination } from '@/api/types'
 import { http, results } from '@/lib/http'
 
 export type ScheduleStatus = 'active' | 'running' | 'paused' | 'completed' | 'failed' | 'cancelled'
@@ -25,8 +26,21 @@ export interface ScheduledSend {
   updated_at: string
 }
 
-export function listSchedules(status?: string): Promise<ScheduledSend[]> {
-  return results<ScheduledSend[]>(http.get('/send/schedules', { params: status ? { status } : undefined }))
+export interface ScheduleListParams {
+  status?: string
+  search?: string
+  message_type?: string
+  limit?: number
+  offset?: number
+}
+
+export interface ScheduleList {
+  data: ScheduledSend[]
+  pagination: Pagination
+}
+
+export function listSchedules(params: ScheduleListParams = {}): Promise<ScheduleList> {
+  return results<ScheduleList>(http.get('/send/schedules', { params }))
 }
 
 export function getSchedule(id: string): Promise<ScheduledSend> {

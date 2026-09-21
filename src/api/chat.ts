@@ -1,3 +1,4 @@
+import type { Pagination } from '@/api/types'
 import { http, results } from '@/lib/http'
 
 export interface ChatInfo {
@@ -8,12 +9,6 @@ export interface ChatInfo {
   created_at: string
   updated_at: string
   archived: boolean
-}
-
-export interface Pagination {
-  limit: number
-  offset: number
-  total: number
 }
 
 export interface ReactionInfo {

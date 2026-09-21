@@ -4,6 +4,12 @@ export interface ResponseData<T> {
   results?: T
 }
 
+export interface Pagination {
+  limit: number
+  offset: number
+  total: number
+}
+
 export interface ApiError {
   status: number
   code: string
