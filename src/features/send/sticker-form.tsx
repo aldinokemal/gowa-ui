@@ -11,9 +11,15 @@ import { useScheduleDraft } from '@/features/send/use-schedule-draft'
 export function SendStickerForm() {
   const jid = useRecipientJid()
   const [source, setSource] = useState<FileOrUrl>({ url: '' })
-  const { draft, patch } = useScheduleDraft()
+  const { draft, patch, reset: resetSchedule } = useScheduleDraft()
 
-  const mutation = useActionMutation(sendSticker, { successMessage: 'Sticker sent' })
+  const mutation = useActionMutation(sendSticker, {
+    successMessage: 'Sticker sent',
+    onSuccess: () => {
+      setSource({ url: '' })
+      resetSchedule()
+    },
+  })
 
   const payload = {
     phone: jid,

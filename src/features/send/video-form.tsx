@@ -19,9 +19,19 @@ export function SendVideoForm() {
   const [viewOnce, setViewOnce] = useState(false)
   const [quality, setQuality] = useState<MediaQuality>('standard')
   const [gifPlayback, setGifPlayback] = useState(false)
-  const { draft, patch } = useScheduleDraft()
+  const { draft, patch, reset: resetSchedule } = useScheduleDraft()
 
-  const mutation = useActionMutation(sendVideo, { successMessage: 'Video sent' })
+  const mutation = useActionMutation(sendVideo, {
+    successMessage: 'Video sent',
+    onSuccess: () => {
+      setSource({ url: '' })
+      setCaption('')
+      setViewOnce(false)
+      setQuality('standard')
+      setGifPlayback(false)
+      resetSchedule()
+    },
+  })
 
   const payload = {
     phone: jid,

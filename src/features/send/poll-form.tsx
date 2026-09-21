@@ -16,9 +16,17 @@ export function SendPollForm() {
   const [question, setQuestion] = useState('')
   const [options, setOptions] = useState<string[]>(['', ''])
   const [maxAnswer, setMaxAnswer] = useState(1)
-  const { draft, patch } = useScheduleDraft()
+  const { draft, patch, reset: resetSchedule } = useScheduleDraft()
 
-  const mutation = useActionMutation(sendPoll, { successMessage: 'Poll sent' })
+  const mutation = useActionMutation(sendPoll, {
+    successMessage: 'Poll sent',
+    onSuccess: () => {
+      setQuestion('')
+      setOptions(['', ''])
+      setMaxAnswer(1)
+      resetSchedule()
+    },
+  })
 
   const setOption = (index: number, value: string) =>
     setOptions((prev) => prev.map((option, i) => (i === index ? value : option)))

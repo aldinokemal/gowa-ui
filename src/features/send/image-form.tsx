@@ -18,9 +18,18 @@ export function SendImageForm() {
   const [caption, setCaption] = useState('')
   const [viewOnce, setViewOnce] = useState(false)
   const [quality, setQuality] = useState<MediaQuality>('standard')
-  const { draft, patch } = useScheduleDraft()
+  const { draft, patch, reset: resetSchedule } = useScheduleDraft()
 
-  const mutation = useActionMutation(sendImage, { successMessage: 'Image sent' })
+  const mutation = useActionMutation(sendImage, {
+    successMessage: 'Image sent',
+    onSuccess: () => {
+      setSource({ url: '' })
+      setCaption('')
+      setViewOnce(false)
+      setQuality('standard')
+      resetSchedule()
+    },
+  })
 
   const payload = {
     phone: jid,

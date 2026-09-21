@@ -13,9 +13,16 @@ export function SendLinkForm() {
   const jid = useRecipientJid()
   const [link, setLink] = useState('')
   const [caption, setCaption] = useState('')
-  const { draft, patch } = useScheduleDraft()
+  const { draft, patch, reset: resetSchedule } = useScheduleDraft()
 
-  const mutation = useActionMutation(sendLink, { successMessage: 'Link sent' })
+  const mutation = useActionMutation(sendLink, {
+    successMessage: 'Link sent',
+    onSuccess: () => {
+      setLink('')
+      setCaption('')
+      resetSchedule()
+    },
+  })
 
   const payload = {
     phone: jid,
