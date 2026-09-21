@@ -1,5 +1,6 @@
 import type { ApiRequest } from '@/api/request'
 import { http, results } from '@/lib/http'
+import type { ScheduleFields } from '@/api/send'
 
 const enc = encodeURIComponent
 
@@ -41,9 +42,9 @@ export function unstarRequest(messageId: string, payload: { phone: string }) {
 
 export function forwardRequest(
   messageId: string,
-  payload: { phone: string; force_reupload?: boolean },
+  payload: { phone: string; force_reupload?: boolean } & ScheduleFields,
 ) {
-  return messageRequest(messageId, 'forward', payload)
+  return messageRequest(messageId, 'forward', { ...payload })
 }
 
 export interface DownloadedMedia {

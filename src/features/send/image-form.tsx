@@ -9,6 +9,8 @@ import { Switch } from '@/components/ui/switch'
 import { MediaQualityField } from '@/features/send/media-quality-field'
 import { useActionMutation } from '@/hooks/use-action-mutation'
 import { useRecipientJid } from '@/stores/recipient'
+import { ScheduleFields } from '@/features/send/schedule-fields'
+import { useScheduleDraft } from '@/features/send/use-schedule-draft'
 
 export function SendImageForm() {
   const jid = useRecipientJid()
@@ -16,6 +18,7 @@ export function SendImageForm() {
   const [caption, setCaption] = useState('')
   const [viewOnce, setViewOnce] = useState(false)
   const [quality, setQuality] = useState<MediaQuality>('standard')
+  const { draft, patch } = useScheduleDraft()
 
   const mutation = useActionMutation(sendImage, { successMessage: 'Image sent' })
 
@@ -28,6 +31,7 @@ export function SendImageForm() {
     quality,
     // view_once messages cannot be forwarded per the WhatsApp protocol
     is_forwarded: false,
+    ...draft,
   }
 
   const onSubmit = (event: FormEvent) => {
@@ -51,6 +55,7 @@ export function SendImageForm() {
         View once
       </label>
       <MediaQualityField value={quality} onChange={setQuality} />
+      <ScheduleFields draft={draft} patch={patch} />
       <FormActions
         submitLabel="Send image"
         pending={mutation.isPending}

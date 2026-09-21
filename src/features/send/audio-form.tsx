@@ -6,11 +6,14 @@ import { ResultPanel } from '@/components/shared/result-panel'
 import { Switch } from '@/components/ui/switch'
 import { useActionMutation } from '@/hooks/use-action-mutation'
 import { useRecipientJid } from '@/stores/recipient'
+import { ScheduleFields } from '@/features/send/schedule-fields'
+import { useScheduleDraft } from '@/features/send/use-schedule-draft'
 
 export function SendAudioForm() {
   const jid = useRecipientJid()
   const [source, setSource] = useState<FileOrUrl>({ url: '' })
   const [ptt, setPtt] = useState(false)
+  const { draft, patch } = useScheduleDraft()
 
   const mutation = useActionMutation(sendAudio, { successMessage: 'Audio sent' })
 
@@ -19,6 +22,7 @@ export function SendAudioForm() {
     file: source.file,
     fileUrl: source.url || undefined,
     ptt,
+    ...draft,
   }
 
   const onSubmit = (event: FormEvent) => {
@@ -33,6 +37,7 @@ export function SendAudioForm() {
         <Switch checked={ptt} onCheckedChange={setPtt} />
         Send as voice note (PTT)
       </label>
+      <ScheduleFields draft={draft} patch={patch} />
       <FormActions
         submitLabel="Send audio"
         pending={mutation.isPending}

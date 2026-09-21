@@ -14,6 +14,8 @@ import { chatDisplayName, senderDisplayName } from '@/features/chat/display-name
 import { useActionMutation } from '@/hooks/use-action-mutation'
 import { formatDate } from '@/lib/format'
 import { cn } from '@/lib/utils'
+import { ScheduleFields } from '@/features/send/schedule-fields'
+import { useScheduleDraft } from '@/features/send/use-schedule-draft'
 
 const PAGE_SIZE = 30
 
@@ -62,6 +64,7 @@ export function MessageView({ chat, deviceId }: { chat: ChatInfo; deviceId: stri
   const [mediaOnly, setMediaOnly] = useState(false)
   const [offset, setOffset] = useState(0)
   const [draft, setDraft] = useState('')
+  const { draft: scheduleDraft, patch: patchSchedule } = useScheduleDraft()
 
   const query = useQuery({
     queryKey: chatMessagesQueryKey(deviceId, chat.jid, { search, mediaOnly, offset }),
@@ -95,7 +98,7 @@ export function MessageView({ chat, deviceId }: { chat: ChatInfo; deviceId: stri
   }, [chat.jid, messages])
 
   const sendMutation = useActionMutation(
-    (message: string) => sendText({ phone: chat.jid, message }),
+    (message: string) => sendText({ phone: chat.jid, message, ...scheduleDraft }),
     {
       successMessage: 'Message sent',
       onSuccess: () => {
@@ -208,6 +211,7 @@ export function MessageView({ chat, deviceId }: { chat: ChatInfo; deviceId: stri
         </div>
       </div>
 
+      <ScheduleFields draft={scheduleDraft} patch={patchSchedule} />
       <form className="flex gap-2" onSubmit={onSend}>
         <Input
           placeholder="Type a message"

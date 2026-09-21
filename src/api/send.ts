@@ -1,11 +1,37 @@
 import { clean, exec, type ApiRequest } from '@/api/request'
 
 export interface SendResult {
-  message_id: string
+  message_id?: string
   status: string
+  schedule_id?: string
+  scheduled_at?: string
+  next_run_at?: string
 }
 
-export interface TextPayload {
+export interface ScheduleFields {
+  scheduled_at?: string
+  timezone?: string
+  recurrence?: 'once' | 'daily' | 'weekly' | 'monthly'
+  weekdays?: number[]
+  day_of_month?: number
+  end_at?: string
+  occurrence_limit?: number
+}
+
+function scheduleFields(payload: ScheduleFields) {
+  if (!payload.scheduled_at) return {}
+  return {
+    scheduled_at: payload.scheduled_at,
+    timezone: payload.timezone,
+    recurrence: payload.recurrence,
+    weekdays: payload.weekdays,
+    day_of_month: payload.day_of_month,
+    end_at: payload.end_at,
+    occurrence_limit: payload.occurrence_limit,
+  }
+}
+
+export interface TextPayload extends ScheduleFields {
   phone: string
   message: string
   reply_message_id?: string
@@ -14,14 +40,14 @@ export interface TextPayload {
 }
 
 export function textRequest(payload: TextPayload): ApiRequest {
-  return { method: 'POST', path: '/send/message', json: clean(payload) }
+  return { method: 'POST', path: '/send/message', json: clean({ ...payload, ...scheduleFields(payload) }) }
 }
 
 export function sendText(payload: TextPayload): Promise<SendResult> {
   return exec(textRequest(payload))
 }
 
-export interface MediaPayload {
+export interface MediaPayload extends ScheduleFields {
   phone: string
   caption?: string
   file?: File
@@ -59,6 +85,7 @@ export function imageRequest(p: ImagePayload): ApiRequest {
       is_forwarded: p.is_forwarded,
       reply_message_id: p.reply_message_id,
       duration: p.duration,
+      ...scheduleFields(p),
     },
   }
 }
@@ -79,6 +106,7 @@ export function fileRequest(p: MediaPayload): ApiRequest {
       reply_message_id: p.reply_message_id,
       is_forwarded: p.is_forwarded,
       duration: p.duration,
+      ...scheduleFields(p),
     },
   }
 }
@@ -109,6 +137,7 @@ export function videoRequest(p: VideoPayload): ApiRequest {
       is_forwarded: p.is_forwarded,
       reply_message_id: p.reply_message_id,
       duration: p.duration,
+      ...scheduleFields(p),
     },
   }
 }
@@ -126,6 +155,7 @@ export function stickerRequest(p: MediaPayload): ApiRequest {
       sticker: p.file,
       sticker_url: p.fileUrl,
       is_forwarded: p.is_forwarded,
+      ...scheduleFields(p),
     },
   }
 }
@@ -147,6 +177,7 @@ export function audioRequest(p: AudioPayload): ApiRequest {
       ptt: p.ptt,
       reply_message_id: p.reply_message_id,
       is_forwarded: p.is_forwarded,
+      ...scheduleFields(p),
     },
   }
 }
@@ -155,49 +186,49 @@ export function sendAudio(p: AudioPayload): Promise<SendResult> {
   return exec(audioRequest(p))
 }
 
-export interface ContactPayload {
+export interface ContactPayload extends ScheduleFields {
   phone: string
   contact_name: string
   contact_phone: string
 }
 
 export function contactRequest(payload: ContactPayload): ApiRequest {
-  return { method: 'POST', path: '/send/contact', json: clean(payload) }
+  return { method: 'POST', path: '/send/contact', json: clean({ ...payload, ...scheduleFields(payload) }) }
 }
 
 export function sendContact(payload: ContactPayload): Promise<SendResult> {
   return exec(contactRequest(payload))
 }
 
-export interface LinkPayload {
+export interface LinkPayload extends ScheduleFields {
   phone: string
   link: string
   caption?: string
 }
 
 export function linkRequest(payload: LinkPayload): ApiRequest {
-  return { method: 'POST', path: '/send/link', json: clean(payload) }
+  return { method: 'POST', path: '/send/link', json: clean({ ...payload, ...scheduleFields(payload) }) }
 }
 
 export function sendLink(payload: LinkPayload): Promise<SendResult> {
   return exec(linkRequest(payload))
 }
 
-export interface LocationPayload {
+export interface LocationPayload extends ScheduleFields {
   phone: string
   latitude: string
   longitude: string
 }
 
 export function locationRequest(payload: LocationPayload): ApiRequest {
-  return { method: 'POST', path: '/send/location', json: clean(payload) }
+  return { method: 'POST', path: '/send/location', json: clean({ ...payload, ...scheduleFields(payload) }) }
 }
 
 export function sendLocation(payload: LocationPayload): Promise<SendResult> {
   return exec(locationRequest(payload))
 }
 
-export interface PollPayload {
+export interface PollPayload extends ScheduleFields {
   phone: string
   question: string
   options: string[]
@@ -205,7 +236,7 @@ export interface PollPayload {
 }
 
 export function pollRequest(payload: PollPayload): ApiRequest {
-  return { method: 'POST', path: '/send/poll', json: clean(payload) }
+  return { method: 'POST', path: '/send/poll', json: clean({ ...payload, ...scheduleFields(payload) }) }
 }
 
 export function sendPoll(payload: PollPayload): Promise<SendResult> {

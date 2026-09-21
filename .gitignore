@@ -25,3 +25,7 @@ dist-ssr
 
 # local planning docs
 docs/superpowers/
+.claude/skills/shadcn
+.playwright-mcp
+skills-lock.json
+.agents

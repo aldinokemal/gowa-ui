@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { formFields, type ApiRequest } from '@/api/request'
-import { imageRequest, videoRequest, type MediaQuality } from '@/api/send'
+import { imageRequest, textRequest, videoRequest, type MediaQuality } from '@/api/send'
 
 type QualityInput = {
   quality?: MediaQuality
@@ -34,5 +34,25 @@ describe.each(builders)('%sRequest', (_name, buildRequest) => {
 
   it.each([true, false])('preserves legacy compress=$compress callers', (compress) => {
     expect(mediaFields(buildRequest({ compress }))).toEqual({ compress })
+  })
+})
+
+describe('schedule fields', () => {
+  const schedule = {
+    scheduled_at: '2026-09-22T03:00:00.000Z',
+    timezone: 'Asia/Jakarta',
+    recurrence: 'weekly' as const,
+    weekdays: [1, 3],
+    end_at: '2026-10-01T03:00:00.000Z',
+    occurrence_limit: 4,
+  }
+
+  it('includes scheduling metadata in JSON requests', () => {
+    expect(textRequest({ phone: '628', message: 'hello', ...schedule }).json).toMatchObject(schedule)
+  })
+
+  it('includes scheduling metadata in multipart requests', () => {
+    const fields = Object.fromEntries(formFields(imageRequest({ phone: '628', ...schedule }).form ?? {}))
+    expect(fields).toMatchObject(schedule)
   })
 })

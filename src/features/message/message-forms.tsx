@@ -19,6 +19,8 @@ import { Textarea } from '@/components/ui/textarea'
 import { useActionMutation } from '@/hooks/use-action-mutation'
 import { useRecipientJid } from '@/stores/recipient'
 import type { SendResult } from '@/api/send'
+import { ScheduleFields } from '@/features/send/schedule-fields'
+import { useScheduleDraft } from '@/features/send/use-schedule-draft'
 
 export interface MessageActionProps {
   messageId: string
@@ -169,12 +171,13 @@ export function StarForm({ messageId }: MessageActionProps) {
 
 export function ForwardForm({ messageId }: MessageActionProps) {
   const [reupload, setReupload] = useState(false)
+  const { draft, patch } = useScheduleDraft()
   return (
     <MessageActionForm
       messageId={messageId}
       submitLabel="Forward message"
       successMessage="Message forwarded"
-      request={(id, phone) => forwardRequest(id, { phone, force_reupload: reupload })}
+      request={(id, phone) => forwardRequest(id, { phone, force_reupload: reupload, ...draft })}
     >
       <label className="text-muted-foreground flex items-center gap-2 text-sm">
         <input
@@ -184,6 +187,7 @@ export function ForwardForm({ messageId }: MessageActionProps) {
         />
         Force re-upload media
       </label>
+      <ScheduleFields draft={draft} patch={patch} />
     </MessageActionForm>
   )
 }

@@ -1,6 +1,6 @@
 import { http, results } from '@/lib/http'
 
-export type FormValue = string | number | boolean | File
+export type FormValue = string | number | boolean | File | number[]
 
 /**
  * A request described rather than sent. Endpoints build one of these so the
@@ -35,7 +35,11 @@ export function formFields(form: NonNullable<ApiRequest['form']>): [string, Form
 function toFormData(form: NonNullable<ApiRequest['form']>): FormData {
   const data = new FormData()
   for (const [key, value] of formFields(form)) {
-    data.append(key, value instanceof File ? value : String(value))
+    if (Array.isArray(value)) {
+      for (const item of value) data.append(key, String(item))
+    } else {
+      data.append(key, value instanceof File ? value : String(value))
+    }
   }
   return data
 }

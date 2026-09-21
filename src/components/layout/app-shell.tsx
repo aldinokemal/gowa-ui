@@ -9,6 +9,7 @@ import {
   UserRound,
   Users,
   Wrench,
+  CalendarClock,
 } from 'lucide-react'
 import { Navigate, NavLink, Outlet, useLocation } from 'react-router-dom'
 import { DeviceSwitcher } from '@/components/layout/device-switcher'
@@ -31,6 +32,7 @@ const navGroups = [
     label: 'Messaging',
     items: [
       { to: '/messaging', label: 'Messaging', icon: Send },
+      { to: '/scheduled', label: 'Scheduled', icon: CalendarClock },
       { to: '/chats', label: 'Chats', icon: MessagesSquare },
     ],
   },
