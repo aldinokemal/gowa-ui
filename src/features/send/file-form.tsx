@@ -17,7 +17,7 @@ export function SendFileForm() {
   const { draft, patch, reset: resetSchedule } = useScheduleDraft()
 
   const mutation = useActionMutation(sendFile, {
-    successMessage: 'File sent',
+    successMessage: (r) => (r.schedule_id ? r.status : 'File sent'),
     onSuccess: () => {
       setSource({ url: '' })
       setCaption('')

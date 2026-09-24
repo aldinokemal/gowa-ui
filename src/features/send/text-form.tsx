@@ -17,7 +17,7 @@ export function SendTextForm() {
   const { draft, patch, reset: resetSchedule } = useScheduleDraft()
 
   const mutation = useActionMutation(sendText, {
-    successMessage: 'Message sent',
+    successMessage: (r) => (r.schedule_id ? r.status : 'Message sent'),
     onSuccess: () => {
       setMessage('')
       setReplyId('')

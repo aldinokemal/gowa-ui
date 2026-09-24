@@ -21,7 +21,7 @@ export function SendImageForm() {
   const { draft, patch, reset: resetSchedule } = useScheduleDraft()
 
   const mutation = useActionMutation(sendImage, {
-    successMessage: 'Image sent',
+    successMessage: (r) => (r.schedule_id ? r.status : 'Image sent'),
     onSuccess: () => {
       setSource({ url: '' })
       setCaption('')

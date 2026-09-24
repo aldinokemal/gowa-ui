@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { TZDate } from '@date-fns/tz'
 import { CalendarIcon, ChevronsUpDownIcon, InfoIcon, XIcon } from 'lucide-react'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
@@ -24,40 +25,37 @@ import {
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import type { ScheduleFields } from '@/api/send'
-import { browserTimezone } from '@/features/send/use-schedule-draft'
+import {
+  atTime,
+  browserTimezone,
+  nextMinute,
+  parseIso,
+  rezone,
+} from '@/features/send/use-schedule-draft'
+import { useAppInfo } from '@/hooks/use-app-info'
 
 export type ScheduleDraft = ScheduleFields
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 const ALL_WEEKDAYS = WEEKDAYS.map((_, day) => day)
 
-const dayFormat = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' })
-
 /** How far ahead the year dropdown reaches; react-day-picker stops at the current year without it. */
 const SCHEDULE_YEARS_AHEAD = 5
 
-function parseIso(value: string | undefined) {
-  if (!value) return undefined
-  const date = new Date(value)
-  return Number.isNaN(date.getTime()) ? undefined : date
-}
-
-/** `HH:mm` in the browser's timezone, matching what the date button shows. */
-function toTimeInput(date: Date | undefined) {
+/** `HH:mm` of a zoned date, matching what the date button shows. */
+function toTimeInput(date: TZDate | undefined) {
   if (!date) return ''
   const hours = String(date.getHours()).padStart(2, '0')
   const minutes = String(date.getMinutes()).padStart(2, '0')
   return `${hours}:${minutes}`
 }
 
-function startOfDay(date: Date) {
-  const day = new Date(date)
-  day.setHours(0, 0, 0, 0)
-  return day
-}
-
-function isSameDay(a: Date, b: Date) {
-  return startOfDay(a).getTime() === startOfDay(b).getTime()
+function isSameDay(a: TZDate, b: TZDate) {
+  return (
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+  )
 }
 
 function timezoneOptions(current: string) {
@@ -72,6 +70,7 @@ function DateTimeField({
   value,
   onChange,
   min,
+  timeZone,
   required,
 }: {
   id: string
@@ -80,24 +79,25 @@ function DateTimeField({
   onChange: (iso: string | undefined) => void
   /** Earliest allowed instant; a schedule can never point into the past. */
   min: Date
+  /** The IANA zone the date and time are read and written in. */
+  timeZone: string
   required?: boolean
 }) {
   const [open, setOpen] = useState(false)
-  const selected = parseIso(value)
+  const parsed = parseIso(value)
+  const selected = parsed && new TZDate(parsed, timeZone)
+  const zonedMin = new TZDate(min, timeZone)
 
   const pickDay = (day: Date) => {
-    const next = new Date(day)
-    next.setHours(selected?.getHours() ?? 9, selected?.getMinutes() ?? 0, 0, 0)
-    onChange((next < min ? min : next).toISOString())
+    const next = atTime(day, selected?.getHours() ?? 9, selected?.getMinutes() ?? 0, timeZone)
+    onChange((next <= min ? nextMinute(min) : next).toISOString())
     setOpen(false)
   }
 
   const pickTime = (time: string) => {
     const [hours, minutes] = time.split(':').map(Number)
     if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return
-    const next = new Date(selected ?? min)
-    next.setHours(hours, minutes, 0, 0)
-    onChange(next.toISOString())
+    onChange(atTime(selected ?? zonedMin, hours, minutes, timeZone).toISOString())
   }
 
   return (
@@ -115,7 +115,11 @@ function DateTimeField({
             >
               <CalendarIcon data-icon="inline-start" />
               <span className="flex-1 truncate text-left">
-                {selected ? dayFormat.format(selected) : 'Select date'}
+                {selected
+                  ? new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeZone }).format(
+                      selected,
+                    )
+                  : 'Select date'}
               </span>
             </Button>
           </PopoverTrigger>
@@ -123,11 +127,12 @@ function DateTimeField({
             <Calendar
               mode="single"
               selected={selected}
-              defaultMonth={selected ?? min}
+              defaultMonth={selected ?? zonedMin}
               captionLayout="dropdown"
-              startMonth={startOfDay(min)}
-              endMonth={new Date(min.getFullYear() + SCHEDULE_YEARS_AHEAD, 11, 31)}
-              disabled={{ before: startOfDay(min) }}
+              timeZone={timeZone}
+              startMonth={zonedMin}
+              endMonth={new TZDate(zonedMin.getFullYear() + SCHEDULE_YEARS_AHEAD, 11, 31, timeZone)}
+              disabled={{ before: zonedMin }}
               onSelect={(day) => day && pickDay(day)}
             />
           </PopoverContent>
@@ -139,7 +144,7 @@ function DateTimeField({
           onChange={(event) => pickTime(event.target.value)}
           disabled={!selected}
           required={required}
-          min={selected && isSameDay(selected, min) ? toTimeInput(min) : undefined}
+          min={selected && isSameDay(selected, zonedMin) ? toTimeInput(zonedMin) : undefined}
           className="w-24 shrink-0 appearance-none [&::-webkit-calendar-picker-indicator]:hidden"
         />
         {!required && selected && (
@@ -213,6 +218,7 @@ export function ScheduleFields({
   draft: ScheduleDraft
   patch: (change: Partial<ScheduleDraft>) => void
 }) {
+  const { data: info } = useAppInfo()
   /** Derived so clearing the draft — after a send — also collapses the panel. */
   const enabled = Boolean(draft.scheduled_at)
   const localTimezone = useMemo(() => draft.timezone || browserTimezone(), [draft.timezone])
@@ -220,18 +226,36 @@ export function ScheduleFields({
   const now = new Date()
   const firstSend = parseIso(draft.scheduled_at)
 
+  // Servers without the scheduler never see the panel, so the draft never gains scheduled_at.
+  if (!info?.scheduled_sends) return null
+
   const enable = (value: boolean) => {
     if (value) {
       const initial = new Date(Date.now() + 10 * 60_000)
       patch({ scheduled_at: initial.toISOString(), timezone: localTimezone })
     } else {
+      // Back to an empty draft, keeping only the chosen timezone.
       patch({
         scheduled_at: undefined,
+        recurrence: 'once',
+        weekdays: undefined,
+        day_of_month: undefined,
         end_at: undefined,
         occurrence_limit: undefined,
-        recurrence: 'once',
       })
     }
+  }
+
+  /** A user who picked 09:00 still means 09:00 after switching zones. */
+  const changeTimezone = (zone: string) => {
+    const scheduledAt = rezone(draft.scheduled_at, localTimezone, zone)
+    patch({
+      timezone: zone,
+      // The same wall clock in a zone further east can already be past.
+      scheduled_at:
+        scheduledAt && new Date(scheduledAt) <= now ? nextMinute(now).toISOString() : scheduledAt,
+      end_at: rezone(draft.end_at, localTimezone, zone),
+    })
   }
 
   const changeRecurrence = (value: ScheduleDraft['recurrence']) => {
@@ -278,6 +302,7 @@ export function ScheduleFields({
               value={draft.scheduled_at}
               onChange={(iso) => patch({ scheduled_at: iso })}
               min={now}
+              timeZone={localTimezone}
               required
             />
             <div className="flex flex-col gap-2">
@@ -341,6 +366,7 @@ export function ScheduleFields({
                   value={draft.end_at}
                   onChange={(iso) => patch({ end_at: iso })}
                   min={firstSend && firstSend > now ? firstSend : now}
+                  timeZone={localTimezone}
                 />
                 <div className="flex flex-col gap-2">
                   <div className="flex items-center gap-1.5">
@@ -373,7 +399,7 @@ export function ScheduleFields({
                 </div>
               </>
             )}
-            <TimezoneField value={localTimezone} onChange={(zone) => patch({ timezone: zone })} />
+            <TimezoneField value={localTimezone} onChange={changeTimezone} />
           </div>
           <p className="text-muted-foreground text-xs">
             Times use {localTimezone}. Uploaded media is stored on the server for delayed delivery.

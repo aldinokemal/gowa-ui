@@ -14,7 +14,7 @@ export function SendStickerForm() {
   const { draft, patch, reset: resetSchedule } = useScheduleDraft()
 
   const mutation = useActionMutation(sendSticker, {
-    successMessage: 'Sticker sent',
+    successMessage: (r) => (r.schedule_id ? r.status : 'Sticker sent'),
     onSuccess: () => {
       setSource({ url: '' })
       resetSchedule()

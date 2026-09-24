@@ -22,7 +22,7 @@ export function SendVideoForm() {
   const { draft, patch, reset: resetSchedule } = useScheduleDraft()
 
   const mutation = useActionMutation(sendVideo, {
-    successMessage: 'Video sent',
+    successMessage: (r) => (r.schedule_id ? r.status : 'Video sent'),
     onSuccess: () => {
       setSource({ url: '' })
       setCaption('')

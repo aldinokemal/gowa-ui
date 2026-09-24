@@ -20,6 +20,7 @@ import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { PasskeyDialog } from '@/features/session/passkey-dialog'
+import { useAppInfo } from '@/hooks/use-app-info'
 import { cn } from '@/lib/utils'
 import { useConnection } from '@/stores/connection'
 
@@ -53,6 +54,7 @@ const navGroups = [
 ]
 
 function NavContent({ onNavigate }: { onNavigate?: () => void }) {
+  const { data: info } = useAppInfo()
   return (
     <nav className="flex flex-col gap-4">
       {navGroups.map((group) => (
@@ -60,25 +62,27 @@ function NavContent({ onNavigate }: { onNavigate?: () => void }) {
           <p className="text-muted-foreground px-3 text-[11px] font-medium tracking-wider uppercase">
             {group.label}
           </p>
-          {group.items.map(({ to, label, icon: Icon }) => (
-            <NavLink
-              key={to}
-              to={to}
-              end={to === '/'}
-              onClick={onNavigate}
-              className={({ isActive }) =>
-                cn(
-                  'flex items-center gap-2.5 rounded-full px-3 py-2 text-sm font-medium transition-colors',
-                  isActive
-                    ? 'bg-sidebar-accent text-sidebar-accent-foreground'
-                    : 'text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground',
-                )
-              }
-            >
-              <Icon className="size-4" />
-              {label}
-            </NavLink>
-          ))}
+          {group.items
+            .filter(({ to }) => to !== '/scheduled' || info?.scheduled_sends)
+            .map(({ to, label, icon: Icon }) => (
+              <NavLink
+                key={to}
+                to={to}
+                end={to === '/'}
+                onClick={onNavigate}
+                className={({ isActive }) =>
+                  cn(
+                    'flex items-center gap-2.5 rounded-full px-3 py-2 text-sm font-medium transition-colors',
+                    isActive
+                      ? 'bg-sidebar-accent text-sidebar-accent-foreground'
+                      : 'text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground',
+                  )
+                }
+              >
+                <Icon className="size-4" />
+                {label}
+              </NavLink>
+            ))}
         </div>
       ))}
     </nav>

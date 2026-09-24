@@ -123,8 +123,8 @@ function ScheduleRow({
   busy: boolean
   run: (action: ScheduleAction, id: string) => void
 }) {
-  const isActive = item.status === 'active' || item.status === 'running'
-  const isClosed = item.status === 'completed' || item.status === 'cancelled'
+  // Mirrors the server: a running send, or a finished one, takes no action.
+  const canCancel = item.status === 'active' || item.status === 'paused' || item.status === 'failed'
 
   return (
     <TableRow>
@@ -170,7 +170,7 @@ function ScheduleRow({
               onClick={() => run('resume', item.id)}
             />
           )}
-          {isActive && (
+          {item.status === 'active' && (
             <IconAction
               icon={Pause}
               label="Pause"
@@ -178,7 +178,7 @@ function ScheduleRow({
               onClick={() => run('pause', item.id)}
             />
           )}
-          {!isClosed && (
+          {canCancel && (
             <IconAction
               icon={XCircle}
               label="Cancel"
@@ -216,18 +216,9 @@ function ScheduleTable({ device }: { device: string }) {
   // Prefix key: an action changes the row's status, so every filtered view is stale.
   const refresh = () => void queryClient.invalidateQueries({ queryKey: ['schedules', device] })
 
-  const pause = useActionMutation(pauseSchedule, {
-    successMessage: 'Schedule paused',
-    onSuccess: refresh,
-  })
-  const resume = useActionMutation(resumeSchedule, {
-    successMessage: 'Schedule resumed',
-    onSuccess: refresh,
-  })
-  const cancel = useActionMutation(cancelSchedule, {
-    successMessage: 'Schedule cancelled',
-    onSuccess: refresh,
-  })
+  const pause = useActionMutation(pauseSchedule, { successMessage: 'Schedule paused' })
+  const resume = useActionMutation(resumeSchedule, { successMessage: 'Schedule resumed' })
+  const cancel = useActionMutation(cancelSchedule, { successMessage: 'Schedule cancelled' })
 
   // The three mutations live here rather than per row, so the hook count stays
   // flat as the page fills. Rows read back the id in flight to disable only
@@ -241,9 +232,11 @@ function ScheduleTable({ device }: { device: string }) {
         : undefined
 
   const run = (action: ScheduleAction, id: string) => {
-    if (action === 'pause') pause.mutate(id)
-    else if (action === 'resume') resume.mutate(id)
-    else if (window.confirm('Cancel this schedule?')) cancel.mutate(id)
+    // Refresh on failure too: a 400 means the row moved on, so re-sync it.
+    const options = { onSettled: refresh }
+    if (action === 'pause') pause.mutate(id, options)
+    else if (action === 'resume') resume.mutate(id, options)
+    else if (window.confirm('Cancel this schedule?')) cancel.mutate(id, options)
   }
 
   const rows = query.data?.data ?? []
@@ -355,7 +348,8 @@ function ScheduleTable({ device }: { device: string }) {
           </Table>
         </div>
       )}
-      {total > PAGE_SIZE && (
+      {/* offset > 0 keeps a way back from a page emptied by cancellations. */}
+      {(total > PAGE_SIZE || offset > 0) && (
         <div className="flex items-center justify-between gap-2">
           <p className="text-muted-foreground text-sm">
             {offset + 1}–{offset + rows.length} of {total}

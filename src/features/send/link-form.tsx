@@ -16,7 +16,7 @@ export function SendLinkForm() {
   const { draft, patch, reset: resetSchedule } = useScheduleDraft()
 
   const mutation = useActionMutation(sendLink, {
-    successMessage: 'Link sent',
+    successMessage: (r) => (r.schedule_id ? r.status : 'Link sent'),
     onSuccess: () => {
       setLink('')
       setCaption('')

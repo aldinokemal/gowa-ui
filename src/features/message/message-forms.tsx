@@ -34,16 +34,21 @@ function MessageActionForm({
   request,
   children,
   extraValid = true,
+  onSuccess,
 }: MessageActionProps & {
   submitLabel: string
   successMessage: string
   request: (messageId: string, phone: string) => ApiRequest
   children?: ReactNode
   extraValid?: boolean
+  onSuccess?: () => void
 }) {
   const jid = useRecipientJid()
-  const mutation = useActionMutation((vars: { messageId: string; phone: string }) =>
-    exec<SendResult>(request(vars.messageId, vars.phone)),
+  const mutation = useActionMutation(
+    (vars: { messageId: string; phone: string }) =>
+      // Some actions answer without results; only a scheduled forward carries a schedule.
+      exec<SendResult | undefined>(request(vars.messageId, vars.phone)),
+    { successMessage: (r) => (r?.schedule_id ? r.status : successMessage), onSuccess },
   )
 
   const onSubmit = (event: FormEvent) => {
@@ -60,7 +65,11 @@ function MessageActionForm({
         disabled={!messageId.trim() || !jid || !extraValid}
         request={request(messageId.trim(), jid)}
       />
-      {mutation.isSuccess && <ResultPanel result={{ status: successMessage }} />}
+      {mutation.isSuccess && (
+        <ResultPanel
+          result={mutation.data?.schedule_id ? mutation.data : { status: successMessage }}
+        />
+      )}
     </form>
   )
 }
@@ -171,12 +180,13 @@ export function StarForm({ messageId }: MessageActionProps) {
 
 export function ForwardForm({ messageId }: MessageActionProps) {
   const [reupload, setReupload] = useState(false)
-  const { draft, patch } = useScheduleDraft()
+  const { draft, patch, reset } = useScheduleDraft()
   return (
     <MessageActionForm
       messageId={messageId}
       submitLabel="Forward message"
       successMessage="Message forwarded"
+      onSuccess={reset}
       request={(id, phone) => forwardRequest(id, { phone, force_reupload: reupload, ...draft })}
     >
       <label className="text-muted-foreground flex items-center gap-2 text-sm">

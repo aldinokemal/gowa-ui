@@ -19,7 +19,7 @@ export function SendPollForm() {
   const { draft, patch, reset: resetSchedule } = useScheduleDraft()
 
   const mutation = useActionMutation(sendPoll, {
-    successMessage: 'Poll sent',
+    successMessage: (r) => (r.schedule_id ? r.status : 'Poll sent'),
     onSuccess: () => {
       setQuestion('')
       setOptions(['', ''])

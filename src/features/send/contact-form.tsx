@@ -16,7 +16,7 @@ export function SendContactForm() {
   const { draft, patch, reset: resetSchedule } = useScheduleDraft()
 
   const mutation = useActionMutation(sendContact, {
-    successMessage: 'Contact sent',
+    successMessage: (r) => (r.schedule_id ? r.status : 'Contact sent'),
     onSuccess: () => {
       setContactName('')
       setContactPhone('')

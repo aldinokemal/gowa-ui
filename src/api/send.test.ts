@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { forwardRequest } from '@/api/message'
 import { formFields, type ApiRequest } from '@/api/request'
 import { imageRequest, textRequest, videoRequest, type MediaQuality } from '@/api/send'
 
@@ -46,13 +47,35 @@ describe('schedule fields', () => {
     end_at: '2026-10-01T03:00:00.000Z',
     occurrence_limit: 4,
   }
+  // What an untouched draft carries: a timezone and recurrence, but no send time.
+  const unscheduled = { timezone: 'Asia/Jakarta', recurrence: 'once' as const }
+  const scheduleKeys = [...Object.keys(schedule), 'day_of_month']
 
   it('includes scheduling metadata in JSON requests', () => {
-    expect(textRequest({ phone: '628', message: 'hello', ...schedule }).json).toMatchObject(schedule)
+    expect(textRequest({ phone: '628', message: 'hello', ...schedule }).json).toMatchObject(
+      schedule,
+    )
   })
 
   it('includes scheduling metadata in multipart requests', () => {
-    const fields = Object.fromEntries(formFields(imageRequest({ phone: '628', ...schedule }).form ?? {}))
+    const fields = Object.fromEntries(
+      formFields(imageRequest({ phone: '628', ...schedule }).form ?? {}),
+    )
     expect(fields).toMatchObject(schedule)
+  })
+
+  it('includes scheduling metadata in forward requests', () => {
+    expect(forwardRequest('msg', { phone: '628', ...schedule }).json).toMatchObject(schedule)
+  })
+
+  it('leaves scheduling metadata out of unscheduled requests', () => {
+    const requests = [
+      textRequest({ phone: '628', message: 'hello', ...unscheduled }).json,
+      Object.fromEntries(formFields(imageRequest({ phone: '628', ...unscheduled }).form ?? {})),
+      forwardRequest('msg', { phone: '628', ...unscheduled }).json,
+    ]
+    for (const body of requests) {
+      expect(Object.keys(body ?? {}).filter((key) => scheduleKeys.includes(key))).toEqual([])
+    }
   })
 })

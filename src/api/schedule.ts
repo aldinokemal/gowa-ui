@@ -43,10 +43,6 @@ export function listSchedules(params: ScheduleListParams = {}): Promise<Schedule
   return results<ScheduleList>(http.get('/send/schedules', { params }))
 }
 
-export function getSchedule(id: string): Promise<ScheduledSend> {
-  return results<ScheduledSend>(http.get(`/send/schedules/${encodeURIComponent(id)}`))
-}
-
 function action(id: string, name: 'pause' | 'resume' | 'cancel'): Promise<void> {
   return http.post(`/send/schedules/${encodeURIComponent(id)}/${name}`).then(() => undefined)
 }

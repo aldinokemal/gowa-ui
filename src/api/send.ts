@@ -8,7 +8,7 @@ export interface SendResult {
   next_run_at?: string
 }
 
-export interface ScheduleFields {
+export type ScheduleFields = {
   scheduled_at?: string
   timezone?: string
   recurrence?: 'once' | 'daily' | 'weekly' | 'monthly'
@@ -18,17 +18,28 @@ export interface ScheduleFields {
   occurrence_limit?: number
 }
 
-function scheduleFields(payload: ScheduleFields) {
-  if (!payload.scheduled_at) return {}
-  return {
-    scheduled_at: payload.scheduled_at,
-    timezone: payload.timezone,
-    recurrence: payload.recurrence,
-    weekdays: payload.weekdays,
-    day_of_month: payload.day_of_month,
-    end_at: payload.end_at,
-    occurrence_limit: payload.occurrence_limit,
+const SCHEDULE_KEYS = [
+  'scheduled_at',
+  'timezone',
+  'recurrence',
+  'weekdays',
+  'day_of_month',
+  'end_at',
+  'occurrence_limit',
+] as const
+
+/**
+ * `fields` minus the schedule keys, which come back from `source` only for a
+ * scheduled send — the draft always carries a timezone and recurrence, and an
+ * immediate send must not.
+ */
+export function withSchedule<T extends object>(fields: T, source: ScheduleFields = fields) {
+  const result = { ...fields } as Record<string, unknown>
+  for (const key of SCHEDULE_KEYS) {
+    delete result[key]
+    if (source.scheduled_at) result[key] = source[key]
   }
+  return result as Omit<T, keyof ScheduleFields> & ScheduleFields
 }
 
 export interface TextPayload extends ScheduleFields {
@@ -40,7 +51,7 @@ export interface TextPayload extends ScheduleFields {
 }
 
 export function textRequest(payload: TextPayload): ApiRequest {
-  return { method: 'POST', path: '/send/message', json: clean({ ...payload, ...scheduleFields(payload) }) }
+  return { method: 'POST', path: '/send/message', json: clean(withSchedule(payload)) }
 }
 
 export function sendText(payload: TextPayload): Promise<SendResult> {
@@ -75,18 +86,20 @@ export function imageRequest(p: ImagePayload): ApiRequest {
   return {
     method: 'POST',
     path: '/send/image',
-    form: {
-      phone: p.phone,
-      caption: p.caption,
-      image: p.file,
-      image_url: p.fileUrl,
-      view_once: p.view_once,
-      ...mediaQualityFields(p.quality, p.compress),
-      is_forwarded: p.is_forwarded,
-      reply_message_id: p.reply_message_id,
-      duration: p.duration,
-      ...scheduleFields(p),
-    },
+    form: withSchedule(
+      {
+        phone: p.phone,
+        caption: p.caption,
+        image: p.file,
+        image_url: p.fileUrl,
+        view_once: p.view_once,
+        ...mediaQualityFields(p.quality, p.compress),
+        is_forwarded: p.is_forwarded,
+        reply_message_id: p.reply_message_id,
+        duration: p.duration,
+      },
+      p,
+    ),
   }
 }
 
@@ -98,16 +111,18 @@ export function fileRequest(p: MediaPayload): ApiRequest {
   return {
     method: 'POST',
     path: '/send/file',
-    form: {
-      phone: p.phone,
-      caption: p.caption,
-      file: p.file,
-      file_url: p.fileUrl,
-      reply_message_id: p.reply_message_id,
-      is_forwarded: p.is_forwarded,
-      duration: p.duration,
-      ...scheduleFields(p),
-    },
+    form: withSchedule(
+      {
+        phone: p.phone,
+        caption: p.caption,
+        file: p.file,
+        file_url: p.fileUrl,
+        reply_message_id: p.reply_message_id,
+        is_forwarded: p.is_forwarded,
+        duration: p.duration,
+      },
+      p,
+    ),
   }
 }
 
@@ -126,19 +141,21 @@ export function videoRequest(p: VideoPayload): ApiRequest {
   return {
     method: 'POST',
     path: '/send/video',
-    form: {
-      phone: p.phone,
-      caption: p.caption,
-      video: p.file,
-      video_url: p.fileUrl,
-      view_once: p.view_once,
-      ...mediaQualityFields(p.quality, p.compress),
-      gif_playback: p.gif_playback,
-      is_forwarded: p.is_forwarded,
-      reply_message_id: p.reply_message_id,
-      duration: p.duration,
-      ...scheduleFields(p),
-    },
+    form: withSchedule(
+      {
+        phone: p.phone,
+        caption: p.caption,
+        video: p.file,
+        video_url: p.fileUrl,
+        view_once: p.view_once,
+        ...mediaQualityFields(p.quality, p.compress),
+        gif_playback: p.gif_playback,
+        is_forwarded: p.is_forwarded,
+        reply_message_id: p.reply_message_id,
+        duration: p.duration,
+      },
+      p,
+    ),
   }
 }
 
@@ -150,13 +167,15 @@ export function stickerRequest(p: MediaPayload): ApiRequest {
   return {
     method: 'POST',
     path: '/send/sticker',
-    form: {
-      phone: p.phone,
-      sticker: p.file,
-      sticker_url: p.fileUrl,
-      is_forwarded: p.is_forwarded,
-      ...scheduleFields(p),
-    },
+    form: withSchedule(
+      {
+        phone: p.phone,
+        sticker: p.file,
+        sticker_url: p.fileUrl,
+        is_forwarded: p.is_forwarded,
+      },
+      p,
+    ),
   }
 }
 
@@ -170,15 +189,17 @@ export function audioRequest(p: AudioPayload): ApiRequest {
   return {
     method: 'POST',
     path: '/send/audio',
-    form: {
-      phone: p.phone,
-      audio: p.file,
-      audio_url: p.fileUrl,
-      ptt: p.ptt,
-      reply_message_id: p.reply_message_id,
-      is_forwarded: p.is_forwarded,
-      ...scheduleFields(p),
-    },
+    form: withSchedule(
+      {
+        phone: p.phone,
+        audio: p.file,
+        audio_url: p.fileUrl,
+        ptt: p.ptt,
+        reply_message_id: p.reply_message_id,
+        is_forwarded: p.is_forwarded,
+      },
+      p,
+    ),
   }
 }
 
@@ -193,7 +214,7 @@ export interface ContactPayload extends ScheduleFields {
 }
 
 export function contactRequest(payload: ContactPayload): ApiRequest {
-  return { method: 'POST', path: '/send/contact', json: clean({ ...payload, ...scheduleFields(payload) }) }
+  return { method: 'POST', path: '/send/contact', json: clean(withSchedule(payload)) }
 }
 
 export function sendContact(payload: ContactPayload): Promise<SendResult> {
@@ -207,7 +228,7 @@ export interface LinkPayload extends ScheduleFields {
 }
 
 export function linkRequest(payload: LinkPayload): ApiRequest {
-  return { method: 'POST', path: '/send/link', json: clean({ ...payload, ...scheduleFields(payload) }) }
+  return { method: 'POST', path: '/send/link', json: clean(withSchedule(payload)) }
 }
 
 export function sendLink(payload: LinkPayload): Promise<SendResult> {
@@ -221,7 +242,7 @@ export interface LocationPayload extends ScheduleFields {
 }
 
 export function locationRequest(payload: LocationPayload): ApiRequest {
-  return { method: 'POST', path: '/send/location', json: clean({ ...payload, ...scheduleFields(payload) }) }
+  return { method: 'POST', path: '/send/location', json: clean(withSchedule(payload)) }
 }
 
 export function sendLocation(payload: LocationPayload): Promise<SendResult> {
@@ -236,7 +257,7 @@ export interface PollPayload extends ScheduleFields {
 }
 
 export function pollRequest(payload: PollPayload): ApiRequest {
-  return { method: 'POST', path: '/send/poll', json: clean({ ...payload, ...scheduleFields(payload) }) }
+  return { method: 'POST', path: '/send/poll', json: clean(withSchedule(payload)) }
 }
 
 export function sendPoll(payload: PollPayload): Promise<SendResult> {

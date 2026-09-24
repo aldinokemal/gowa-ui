@@ -64,7 +64,7 @@ export function MessageView({ chat, deviceId }: { chat: ChatInfo; deviceId: stri
   const [mediaOnly, setMediaOnly] = useState(false)
   const [offset, setOffset] = useState(0)
   const [draft, setDraft] = useState('')
-  const { draft: scheduleDraft, patch: patchSchedule } = useScheduleDraft()
+  const { draft: scheduleDraft, patch: patchSchedule, reset: resetSchedule } = useScheduleDraft()
 
   const query = useQuery({
     queryKey: chatMessagesQueryKey(deviceId, chat.jid, { search, mediaOnly, offset }),
@@ -100,9 +100,10 @@ export function MessageView({ chat, deviceId }: { chat: ChatInfo; deviceId: stri
   const sendMutation = useActionMutation(
     (message: string) => sendText({ phone: chat.jid, message, ...scheduleDraft }),
     {
-      successMessage: 'Message sent',
+      successMessage: (r) => (r.schedule_id ? r.status : 'Message sent'),
       onSuccess: () => {
         setDraft('')
+        resetSchedule()
         void queryClient.invalidateQueries({
           queryKey: ['chat-messages', deviceId, chat.jid],
         })

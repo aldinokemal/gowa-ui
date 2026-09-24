@@ -35,6 +35,8 @@ export interface AppInfo {
   max_video_size: number
   max_image_size: number
   chatwoot_enabled: boolean
+  /** Absent on servers that predate the scheduler, so the UI hides it there. */
+  scheduled_sends?: boolean
 }
 
 export interface LoginQr {

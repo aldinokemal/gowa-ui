@@ -16,7 +16,7 @@ export function SendAudioForm() {
   const { draft, patch, reset: resetSchedule } = useScheduleDraft()
 
   const mutation = useActionMutation(sendAudio, {
-    successMessage: 'Audio sent',
+    successMessage: (r) => (r.schedule_id ? r.status : 'Audio sent'),
     onSuccess: () => {
       setSource({ url: '' })
       setPtt(false)
