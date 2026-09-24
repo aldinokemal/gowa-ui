@@ -212,21 +212,24 @@ export function MessageView({ chat, deviceId }: { chat: ChatInfo; deviceId: stri
         </div>
       </div>
 
-      <ScheduleFields draft={scheduleDraft} patch={patchSchedule} />
-      <form className="flex gap-2" onSubmit={onSend}>
-        <Input
-          placeholder="Type a message"
-          value={draft}
-          onChange={(event) => setDraft(event.target.value)}
-        />
-        <Button type="submit" disabled={sendMutation.isPending || !draft.trim()}>
-          {sendMutation.isPending ? (
-            <Loader2 className="size-4 animate-spin" />
-          ) : (
-            <Send className="size-4" />
-          )}
-          Send
-        </Button>
+      {/* Inside the form so the schedule's native constraints gate Send. */}
+      <form className="flex flex-col gap-3" onSubmit={onSend}>
+        <ScheduleFields draft={scheduleDraft} patch={patchSchedule} />
+        <div className="flex gap-2">
+          <Input
+            placeholder="Type a message"
+            value={draft}
+            onChange={(event) => setDraft(event.target.value)}
+          />
+          <Button type="submit" disabled={sendMutation.isPending || !draft.trim()}>
+            {sendMutation.isPending ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <Send className="size-4" />
+            )}
+            Send
+          </Button>
+        </div>
       </form>
     </div>
   )

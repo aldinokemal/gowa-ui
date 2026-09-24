@@ -300,7 +300,16 @@ export function ScheduleFields({
               id="schedule-at"
               label="First send"
               value={draft.scheduled_at}
-              onChange={(iso) => patch({ scheduled_at: iso })}
+              onChange={(iso) =>
+                patch({
+                  scheduled_at: iso,
+                  // An end no longer after the first send would be rejected; drop it.
+                  end_at:
+                    iso && draft.end_at && new Date(draft.end_at) <= new Date(iso)
+                      ? undefined
+                      : draft.end_at,
+                })
+              }
               min={now}
               timeZone={localTimezone}
               required

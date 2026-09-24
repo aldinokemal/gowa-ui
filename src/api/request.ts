@@ -24,22 +24,27 @@ export function clean(payload: object): Record<string, unknown> {
   return out
 }
 
-/** Fields that survive into the multipart body. Shared with the cURL renderer. */
-export function formFields(form: NonNullable<ApiRequest['form']>): [string, FormValue][] {
-  return Object.entries(form).filter(
-    (entry): entry is [string, FormValue] =>
-      entry[1] !== undefined && entry[1] !== null && entry[1] !== '',
-  )
+type FormScalar = Exclude<FormValue, number[]>
+
+/**
+ * Fields that survive into the multipart body, with an array spread into one
+ * repeated field per item. Shared with the cURL renderer.
+ */
+export function formFields(form: NonNullable<ApiRequest['form']>): [string, FormScalar][] {
+  return Object.entries(form)
+    .filter(
+      (entry): entry is [string, FormValue] =>
+        entry[1] !== undefined && entry[1] !== null && entry[1] !== '',
+    )
+    .flatMap(([key, value]): [string, FormScalar][] =>
+      Array.isArray(value) ? value.map((item) => [key, item]) : [[key, value]],
+    )
 }
 
 function toFormData(form: NonNullable<ApiRequest['form']>): FormData {
   const data = new FormData()
   for (const [key, value] of formFields(form)) {
-    if (Array.isArray(value)) {
-      for (const item of value) data.append(key, String(item))
-    } else {
-      data.append(key, value instanceof File ? value : String(value))
-    }
+    data.append(key, value instanceof File ? value : String(value))
   }
   return data
 }

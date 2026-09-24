@@ -94,6 +94,18 @@ describe('toCurl', () => {
     expect(command).not.toContain('Content-Type: application/json')
   })
 
+  it('repeats an array field once per item, matching what is sent', () => {
+    const request: ApiRequest = {
+      method: 'POST',
+      path: '/send/image',
+      form: { phone: '628123@s.whatsapp.net', weekdays: [1, 3] },
+    }
+    const command = toCurl(request, base)
+    expect(command).toContain("-F 'weekdays=1'")
+    expect(command).toContain("-F 'weekdays=3'")
+    expect(command).not.toContain('weekdays=1,3')
+  })
+
   it('skips empty and undefined multipart fields, matching what is sent', () => {
     const request: ApiRequest = {
       method: 'POST',

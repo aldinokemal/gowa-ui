@@ -58,10 +58,13 @@ describe('schedule fields', () => {
   })
 
   it('includes scheduling metadata in multipart requests', () => {
-    const fields = Object.fromEntries(
-      formFields(imageRequest({ phone: '628', ...schedule }).form ?? {}),
+    const entries = formFields(imageRequest({ phone: '628', ...schedule }).form ?? {})
+    const { weekdays, ...scalars } = schedule
+    expect(Object.fromEntries(entries)).toMatchObject(scalars)
+    // Weekdays go out as one repeated field per day.
+    expect(entries.filter(([key]) => key === 'weekdays').map(([, value]) => value)).toEqual(
+      weekdays,
     )
-    expect(fields).toMatchObject(schedule)
   })
 
   it('includes scheduling metadata in forward requests', () => {
