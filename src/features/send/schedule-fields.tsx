@@ -58,6 +58,11 @@ function isSameDay(a: TZDate, b: TZDate) {
   )
 }
 
+/** `end` unless it is no longer after `first`; the server rejects such an end, so drop it. */
+function endAfter(end: string | undefined, first: string | undefined) {
+  return end && first && new Date(end) <= new Date(first) ? undefined : end
+}
+
 function timezoneOptions(current: string) {
   const zones =
     typeof Intl.supportedValuesOf === 'function' ? Intl.supportedValuesOf('timeZone') : []
@@ -248,13 +253,15 @@ export function ScheduleFields({
 
   /** A user who picked 09:00 still means 09:00 after switching zones. */
   const changeTimezone = (zone: string) => {
-    const scheduledAt = rezone(draft.scheduled_at, localTimezone, zone)
+    const rezoned = rezone(draft.scheduled_at, localTimezone, zone)
+    // The same wall clock in a zone further east can already be past.
+    const scheduledAt =
+      rezoned && new Date(rezoned) <= now ? nextMinute(now).toISOString() : rezoned
     patch({
       timezone: zone,
-      // The same wall clock in a zone further east can already be past.
-      scheduled_at:
-        scheduledAt && new Date(scheduledAt) <= now ? nextMinute(now).toISOString() : scheduledAt,
-      end_at: rezone(draft.end_at, localTimezone, zone),
+      scheduled_at: scheduledAt,
+      // The clamp above can move the first send onto or past the end.
+      end_at: endAfter(rezone(draft.end_at, localTimezone, zone), scheduledAt),
     })
   }
 
@@ -300,16 +307,7 @@ export function ScheduleFields({
               id="schedule-at"
               label="First send"
               value={draft.scheduled_at}
-              onChange={(iso) =>
-                patch({
-                  scheduled_at: iso,
-                  // An end no longer after the first send would be rejected; drop it.
-                  end_at:
-                    iso && draft.end_at && new Date(draft.end_at) <= new Date(iso)
-                      ? undefined
-                      : draft.end_at,
-                })
-              }
+              onChange={(iso) => patch({ scheduled_at: iso, end_at: endAfter(draft.end_at, iso) })}
               min={now}
               timeZone={localTimezone}
               required
