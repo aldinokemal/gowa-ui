@@ -14,6 +14,7 @@ import GroupsPage from '@/pages/groups'
 import MessagingPage from '@/pages/messaging'
 import MiscPage from '@/pages/misc'
 import SettingsPage from '@/pages/settings'
+import ScheduledPage from '@/pages/scheduled'
 
 function useBootstrap() {
   const queryClient = useQueryClient()
@@ -66,6 +67,7 @@ function App() {
       <Route element={<AppShell />}>
         <Route path="/" element={<DashboardPage />} />
         <Route path="/messaging" element={<MessagingPage />} />
+        <Route path="/scheduled" element={<ScheduledPage />} />
         <Route path="/send" element={<Navigate to="/messaging" replace />} />
         <Route path="/messages" element={<Navigate to="/messaging" replace />} />
         <Route path="/groups" element={<GroupsPage />} />

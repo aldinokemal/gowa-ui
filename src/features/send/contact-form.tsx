@@ -6,18 +6,29 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useActionMutation } from '@/hooks/use-action-mutation'
 import { useRecipientJid } from '@/stores/recipient'
+import { ScheduleFields } from '@/features/send/schedule-fields'
+import { useScheduleDraft } from '@/features/send/use-schedule-draft'
 
 export function SendContactForm() {
   const jid = useRecipientJid()
   const [contactName, setContactName] = useState('')
   const [contactPhone, setContactPhone] = useState('')
+  const { draft, patch, reset: resetSchedule } = useScheduleDraft()
 
-  const mutation = useActionMutation(sendContact, { successMessage: 'Contact sent' })
+  const mutation = useActionMutation(sendContact, {
+    successMessage: (r) => (r.schedule_id ? r.status : 'Contact sent'),
+    onSuccess: () => {
+      setContactName('')
+      setContactPhone('')
+      resetSchedule()
+    },
+  })
 
   const payload = {
     phone: jid,
     contact_name: contactName,
     contact_phone: contactPhone,
+    ...draft,
   }
 
   const onSubmit = (event: FormEvent) => {
@@ -46,6 +57,7 @@ export function SendContactForm() {
           required
         />
       </div>
+      <ScheduleFields draft={draft} patch={patch} />
       <FormActions
         submitLabel="Send contact"
         pending={mutation.isPending}

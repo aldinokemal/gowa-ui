@@ -7,18 +7,29 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { useActionMutation } from '@/hooks/use-action-mutation'
 import { useRecipientJid } from '@/stores/recipient'
+import { ScheduleFields } from '@/features/send/schedule-fields'
+import { useScheduleDraft } from '@/features/send/use-schedule-draft'
 
 export function SendTextForm() {
   const jid = useRecipientJid()
   const [message, setMessage] = useState('')
   const [replyId, setReplyId] = useState('')
+  const { draft, patch, reset: resetSchedule } = useScheduleDraft()
 
-  const mutation = useActionMutation(sendText, { successMessage: 'Message sent' })
+  const mutation = useActionMutation(sendText, {
+    successMessage: (r) => (r.schedule_id ? r.status : 'Message sent'),
+    onSuccess: () => {
+      setMessage('')
+      setReplyId('')
+      resetSchedule()
+    },
+  })
 
   const payload = {
     phone: jid,
     message,
     reply_message_id: replyId || undefined,
+    ...draft,
   }
 
   const onSubmit = (event: FormEvent) => {
@@ -46,6 +57,7 @@ export function SendTextForm() {
           onChange={(event) => setReplyId(event.target.value)}
         />
       </div>
+      <ScheduleFields draft={draft} patch={patch} />
       <FormActions
         submitLabel="Send message"
         pending={mutation.isPending}

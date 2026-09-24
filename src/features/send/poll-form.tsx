@@ -8,14 +8,25 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useActionMutation } from '@/hooks/use-action-mutation'
 import { useRecipientJid } from '@/stores/recipient'
+import { ScheduleFields } from '@/features/send/schedule-fields'
+import { useScheduleDraft } from '@/features/send/use-schedule-draft'
 
 export function SendPollForm() {
   const jid = useRecipientJid()
   const [question, setQuestion] = useState('')
   const [options, setOptions] = useState<string[]>(['', ''])
   const [maxAnswer, setMaxAnswer] = useState(1)
+  const { draft, patch, reset: resetSchedule } = useScheduleDraft()
 
-  const mutation = useActionMutation(sendPoll, { successMessage: 'Poll sent' })
+  const mutation = useActionMutation(sendPoll, {
+    successMessage: (r) => (r.schedule_id ? r.status : 'Poll sent'),
+    onSuccess: () => {
+      setQuestion('')
+      setOptions(['', ''])
+      setMaxAnswer(1)
+      resetSchedule()
+    },
+  })
 
   const setOption = (index: number, value: string) =>
     setOptions((prev) => prev.map((option, i) => (i === index ? value : option)))
@@ -27,6 +38,7 @@ export function SendPollForm() {
     question,
     options: options.map((option) => option.trim()).filter(Boolean),
     max_answer: maxAnswer,
+    ...draft,
   }
 
   const onSubmit = (event: FormEvent) => {
@@ -86,6 +98,7 @@ export function SendPollForm() {
           onChange={(event) => setMaxAnswer(Number(event.target.value))}
         />
       </div>
+      <ScheduleFields draft={draft} patch={patch} />
       <FormActions
         submitLabel="Send poll"
         pending={mutation.isPending}

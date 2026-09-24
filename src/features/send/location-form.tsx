@@ -6,18 +6,29 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useActionMutation } from '@/hooks/use-action-mutation'
 import { useRecipientJid } from '@/stores/recipient'
+import { ScheduleFields } from '@/features/send/schedule-fields'
+import { useScheduleDraft } from '@/features/send/use-schedule-draft'
 
 export function SendLocationForm() {
   const jid = useRecipientJid()
   const [latitude, setLatitude] = useState('')
   const [longitude, setLongitude] = useState('')
+  const { draft, patch, reset: resetSchedule } = useScheduleDraft()
 
-  const mutation = useActionMutation(sendLocation, { successMessage: 'Location sent' })
+  const mutation = useActionMutation(sendLocation, {
+    successMessage: (r) => (r.schedule_id ? r.status : 'Location sent'),
+    onSuccess: () => {
+      setLatitude('')
+      setLongitude('')
+      resetSchedule()
+    },
+  })
 
   const payload = {
     phone: jid,
     latitude,
     longitude,
+    ...draft,
   }
 
   const onSubmit = (event: FormEvent) => {
@@ -47,6 +58,7 @@ export function SendLocationForm() {
           required
         />
       </div>
+      <ScheduleFields draft={draft} patch={patch} />
       <FormActions
         submitLabel="Send location"
         pending={mutation.isPending}

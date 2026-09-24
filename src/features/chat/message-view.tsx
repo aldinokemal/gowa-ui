@@ -14,6 +14,8 @@ import { chatDisplayName, senderDisplayName } from '@/features/chat/display-name
 import { useActionMutation } from '@/hooks/use-action-mutation'
 import { formatDate } from '@/lib/format'
 import { cn } from '@/lib/utils'
+import { ScheduleFields } from '@/features/send/schedule-fields'
+import { useScheduleDraft } from '@/features/send/use-schedule-draft'
 
 const PAGE_SIZE = 30
 
@@ -62,6 +64,7 @@ export function MessageView({ chat, deviceId }: { chat: ChatInfo; deviceId: stri
   const [mediaOnly, setMediaOnly] = useState(false)
   const [offset, setOffset] = useState(0)
   const [draft, setDraft] = useState('')
+  const { draft: scheduleDraft, patch: patchSchedule, reset: resetSchedule } = useScheduleDraft()
 
   const query = useQuery({
     queryKey: chatMessagesQueryKey(deviceId, chat.jid, { search, mediaOnly, offset }),
@@ -95,11 +98,12 @@ export function MessageView({ chat, deviceId }: { chat: ChatInfo; deviceId: stri
   }, [chat.jid, messages])
 
   const sendMutation = useActionMutation(
-    (message: string) => sendText({ phone: chat.jid, message }),
+    (message: string) => sendText({ phone: chat.jid, message, ...scheduleDraft }),
     {
-      successMessage: 'Message sent',
+      successMessage: (r) => (r.schedule_id ? r.status : 'Message sent'),
       onSuccess: () => {
         setDraft('')
+        resetSchedule()
         void queryClient.invalidateQueries({
           queryKey: ['chat-messages', deviceId, chat.jid],
         })
@@ -208,20 +212,24 @@ export function MessageView({ chat, deviceId }: { chat: ChatInfo; deviceId: stri
         </div>
       </div>
 
-      <form className="flex gap-2" onSubmit={onSend}>
-        <Input
-          placeholder="Type a message"
-          value={draft}
-          onChange={(event) => setDraft(event.target.value)}
-        />
-        <Button type="submit" disabled={sendMutation.isPending || !draft.trim()}>
-          {sendMutation.isPending ? (
-            <Loader2 className="size-4 animate-spin" />
-          ) : (
-            <Send className="size-4" />
-          )}
-          Send
-        </Button>
+      {/* Inside the form so the schedule's native constraints gate Send. */}
+      <form className="flex flex-col gap-3" onSubmit={onSend}>
+        <ScheduleFields draft={scheduleDraft} patch={patchSchedule} />
+        <div className="flex gap-2">
+          <Input
+            placeholder="Type a message"
+            value={draft}
+            onChange={(event) => setDraft(event.target.value)}
+          />
+          <Button type="submit" disabled={sendMutation.isPending || !draft.trim()}>
+            {sendMutation.isPending ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <Send className="size-4" />
+            )}
+            Send
+          </Button>
+        </div>
       </form>
     </div>
   )

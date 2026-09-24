@@ -9,6 +9,8 @@ import { Switch } from '@/components/ui/switch'
 import { MediaQualityField } from '@/features/send/media-quality-field'
 import { useActionMutation } from '@/hooks/use-action-mutation'
 import { useRecipientJid } from '@/stores/recipient'
+import { ScheduleFields } from '@/features/send/schedule-fields'
+import { useScheduleDraft } from '@/features/send/use-schedule-draft'
 
 export function SendVideoForm() {
   const jid = useRecipientJid()
@@ -17,8 +19,19 @@ export function SendVideoForm() {
   const [viewOnce, setViewOnce] = useState(false)
   const [quality, setQuality] = useState<MediaQuality>('standard')
   const [gifPlayback, setGifPlayback] = useState(false)
+  const { draft, patch, reset: resetSchedule } = useScheduleDraft()
 
-  const mutation = useActionMutation(sendVideo, { successMessage: 'Video sent' })
+  const mutation = useActionMutation(sendVideo, {
+    successMessage: (r) => (r.schedule_id ? r.status : 'Video sent'),
+    onSuccess: () => {
+      setSource({ url: '' })
+      setCaption('')
+      setViewOnce(false)
+      setQuality('standard')
+      setGifPlayback(false)
+      resetSchedule()
+    },
+  })
 
   const payload = {
     phone: jid,
@@ -30,6 +43,7 @@ export function SendVideoForm() {
     gif_playback: gifPlayback,
     // view_once messages cannot be forwarded per the WhatsApp protocol
     is_forwarded: viewOnce ? false : undefined,
+    ...draft,
   }
 
   const onSubmit = (event: FormEvent) => {
@@ -57,6 +71,7 @@ export function SendVideoForm() {
         <Switch checked={gifPlayback} onCheckedChange={setGifPlayback} />
         GIF playback
       </label>
+      <ScheduleFields draft={draft} patch={patch} />
       <FormActions
         submitLabel="Send video"
         pending={mutation.isPending}

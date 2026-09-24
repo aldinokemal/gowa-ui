@@ -1,6 +1,6 @@
 import { http, results } from '@/lib/http'
 
-export type FormValue = string | number | boolean | File
+export type FormValue = string | number | boolean | File | number[]
 
 /**
  * A request described rather than sent. Endpoints build one of these so the
@@ -24,12 +24,21 @@ export function clean(payload: object): Record<string, unknown> {
   return out
 }
 
-/** Fields that survive into the multipart body. Shared with the cURL renderer. */
-export function formFields(form: NonNullable<ApiRequest['form']>): [string, FormValue][] {
-  return Object.entries(form).filter(
-    (entry): entry is [string, FormValue] =>
-      entry[1] !== undefined && entry[1] !== null && entry[1] !== '',
-  )
+type FormScalar = Exclude<FormValue, number[]>
+
+/**
+ * Fields that survive into the multipart body, with an array spread into one
+ * repeated field per item. Shared with the cURL renderer.
+ */
+export function formFields(form: NonNullable<ApiRequest['form']>): [string, FormScalar][] {
+  return Object.entries(form)
+    .filter(
+      (entry): entry is [string, FormValue] =>
+        entry[1] !== undefined && entry[1] !== null && entry[1] !== '',
+    )
+    .flatMap(([key, value]): [string, FormScalar][] =>
+      Array.isArray(value) ? value.map((item) => [key, item]) : [[key, value]],
+    )
 }
 
 function toFormData(form: NonNullable<ApiRequest['form']>): FormData {

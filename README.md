@@ -41,6 +41,10 @@ Then connect the app to your server, either way:
 
 Other scripts: `npm run build` (single-file production build into `dist/index.html`), `typecheck`, `lint`, `format`, `preview`.
 
+Before opening a change, run the checks relevant to it. UI and API changes should
+pass `npm run typecheck`, `npm run lint`, `npm run test`, and `npm run build`; the
+build confirms the single-file release contract.
+
 ### Single-file rules
 
 The build must stay one file with zero external requests:

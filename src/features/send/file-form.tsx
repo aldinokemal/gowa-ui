@@ -7,19 +7,30 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useActionMutation } from '@/hooks/use-action-mutation'
 import { useRecipientJid } from '@/stores/recipient'
+import { ScheduleFields } from '@/features/send/schedule-fields'
+import { useScheduleDraft } from '@/features/send/use-schedule-draft'
 
 export function SendFileForm() {
   const jid = useRecipientJid()
   const [source, setSource] = useState<FileOrUrl>({ url: '' })
   const [caption, setCaption] = useState('')
+  const { draft, patch, reset: resetSchedule } = useScheduleDraft()
 
-  const mutation = useActionMutation(sendFile, { successMessage: 'File sent' })
+  const mutation = useActionMutation(sendFile, {
+    successMessage: (r) => (r.schedule_id ? r.status : 'File sent'),
+    onSuccess: () => {
+      setSource({ url: '' })
+      setCaption('')
+      resetSchedule()
+    },
+  })
 
   const payload = {
     phone: jid,
     file: source.file,
     fileUrl: source.url || undefined,
     caption,
+    ...draft,
   }
 
   const onSubmit = (event: FormEvent) => {
@@ -38,6 +49,7 @@ export function SendFileForm() {
           onChange={(event) => setCaption(event.target.value)}
         />
       </div>
+      <ScheduleFields draft={draft} patch={patch} />
       <FormActions
         submitLabel="Send file"
         pending={mutation.isPending}
