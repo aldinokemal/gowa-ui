@@ -8,7 +8,8 @@ import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { MediaQualityField } from '@/features/send/media-quality-field'
 import { useActionMutation } from '@/hooks/use-action-mutation'
-import { useRecipientJid } from '@/stores/recipient'
+import { isStatus } from '@/lib/jid'
+import { useRecipientJid, useRecipientStore } from '@/stores/recipient'
 import { ScheduleFields } from '@/features/send/schedule-fields'
 import { useScheduleDraft } from '@/features/send/use-schedule-draft'
 
@@ -17,6 +18,8 @@ export function SendImageForm() {
   const [source, setSource] = useState<FileOrUrl>({ url: '' })
   const [caption, setCaption] = useState('')
   const [viewOnce, setViewOnce] = useState(false)
+  const statusRecipient = useRecipientStore((state) => isStatus(state.recipient.type))
+  const [allowReshare, setAllowReshare] = useState(false)
   const [quality, setQuality] = useState<MediaQuality>('standard')
   const { draft, patch, reset: resetSchedule } = useScheduleDraft()
 
@@ -26,6 +29,7 @@ export function SendImageForm() {
       setSource({ url: '' })
       setCaption('')
       setViewOnce(false)
+      setAllowReshare(false)
       setQuality('standard')
       resetSchedule()
     },
@@ -37,6 +41,7 @@ export function SendImageForm() {
     fileUrl: source.url || undefined,
     caption,
     view_once: viewOnce,
+    allow_reshare: statusRecipient && allowReshare ? true : undefined,
     quality,
     // view_once messages cannot be forwarded per the WhatsApp protocol
     is_forwarded: false,
@@ -63,6 +68,12 @@ export function SendImageForm() {
         <Switch checked={viewOnce} onCheckedChange={setViewOnce} />
         View once
       </label>
+      {statusRecipient && (
+        <label className="flex items-center gap-2 text-sm">
+          <Switch checked={allowReshare} onCheckedChange={setAllowReshare} />
+          Allow resharing
+        </label>
+      )}
       <MediaQualityField value={quality} onChange={setQuality} />
       <ScheduleFields draft={draft} patch={patch} />
       <FormActions
