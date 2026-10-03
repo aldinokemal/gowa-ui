@@ -11,12 +11,14 @@ import { useActionMutation } from '@/hooks/use-action-mutation'
 import { useRecipientJid } from '@/stores/recipient'
 import { ScheduleFields } from '@/features/send/schedule-fields'
 import { useScheduleDraft } from '@/features/send/use-schedule-draft'
+import { useAllowReshare } from '@/features/send/use-allow-reshare'
 
 export function SendVideoForm() {
   const jid = useRecipientJid()
   const [source, setSource] = useState<FileOrUrl>({ url: '' })
   const [caption, setCaption] = useState('')
   const [viewOnce, setViewOnce] = useState(false)
+  const { statusRecipient, allowReshare, setAllowReshare } = useAllowReshare()
   const [quality, setQuality] = useState<MediaQuality>('standard')
   const [gifPlayback, setGifPlayback] = useState(false)
   const { draft, patch, reset: resetSchedule } = useScheduleDraft()
@@ -27,6 +29,7 @@ export function SendVideoForm() {
       setSource({ url: '' })
       setCaption('')
       setViewOnce(false)
+      setAllowReshare(false)
       setQuality('standard')
       setGifPlayback(false)
       resetSchedule()
@@ -39,6 +42,7 @@ export function SendVideoForm() {
     fileUrl: source.url || undefined,
     caption,
     view_once: viewOnce,
+    allow_reshare: allowReshare || undefined,
     quality,
     gif_playback: gifPlayback,
     // view_once messages cannot be forwarded per the WhatsApp protocol
@@ -66,6 +70,12 @@ export function SendVideoForm() {
         <Switch checked={viewOnce} onCheckedChange={setViewOnce} />
         View once
       </label>
+      {statusRecipient && (
+        <label className="flex items-center gap-2 text-sm">
+          <Switch checked={allowReshare} onCheckedChange={setAllowReshare} />
+          Allow resharing
+        </label>
+      )}
       <MediaQualityField value={quality} onChange={setQuality} />
       <label className="flex items-center gap-2 text-sm">
         <Switch checked={gifPlayback} onCheckedChange={setGifPlayback} />

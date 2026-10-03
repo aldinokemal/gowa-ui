@@ -48,6 +48,8 @@ export interface TextPayload extends ScheduleFields {
   reply_message_id?: string
   is_forwarded?: boolean
   duration?: number
+  /** status@broadcast only: let viewers reshare the status */
+  allow_reshare?: boolean
 }
 
 export function textRequest(payload: TextPayload): ApiRequest {
@@ -78,6 +80,7 @@ function mediaQualityFields(quality?: MediaQuality, compress?: boolean) {
 
 export type ImagePayload = MediaPayload & {
   view_once?: boolean
+  allow_reshare?: boolean
   compress?: boolean
   quality?: MediaQuality
 }
@@ -93,6 +96,7 @@ export function imageRequest(p: ImagePayload): ApiRequest {
         image: p.file,
         image_url: p.fileUrl,
         view_once: p.view_once,
+        allow_reshare: p.allow_reshare,
         ...mediaQualityFields(p.quality, p.compress),
         is_forwarded: p.is_forwarded,
         reply_message_id: p.reply_message_id,
@@ -132,6 +136,7 @@ export function sendFile(p: MediaPayload): Promise<SendResult> {
 
 export type VideoPayload = MediaPayload & {
   view_once?: boolean
+  allow_reshare?: boolean
   compress?: boolean
   quality?: MediaQuality
   gif_playback?: boolean
@@ -148,6 +153,7 @@ export function videoRequest(p: VideoPayload): ApiRequest {
         video: p.file,
         video_url: p.fileUrl,
         view_once: p.view_once,
+        allow_reshare: p.allow_reshare,
         ...mediaQualityFields(p.quality, p.compress),
         gif_playback: p.gif_playback,
         is_forwarded: p.is_forwarded,

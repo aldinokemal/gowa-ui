@@ -4,16 +4,19 @@ import { FormActions } from '@/components/shared/curl-dialog'
 import { ResultPanel } from '@/components/shared/result-panel'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
 import { useActionMutation } from '@/hooks/use-action-mutation'
 import { useRecipientJid } from '@/stores/recipient'
 import { ScheduleFields } from '@/features/send/schedule-fields'
 import { useScheduleDraft } from '@/features/send/use-schedule-draft'
+import { useAllowReshare } from '@/features/send/use-allow-reshare'
 
 export function SendTextForm() {
   const jid = useRecipientJid()
   const [message, setMessage] = useState('')
   const [replyId, setReplyId] = useState('')
+  const { statusRecipient, allowReshare, setAllowReshare } = useAllowReshare()
   const { draft, patch, reset: resetSchedule } = useScheduleDraft()
 
   const mutation = useActionMutation(sendText, {
@@ -21,6 +24,7 @@ export function SendTextForm() {
     onSuccess: () => {
       setMessage('')
       setReplyId('')
+      setAllowReshare(false)
       resetSchedule()
     },
   })
@@ -29,6 +33,7 @@ export function SendTextForm() {
     phone: jid,
     message,
     reply_message_id: replyId || undefined,
+    allow_reshare: allowReshare || undefined,
     ...draft,
   }
 
@@ -57,6 +62,12 @@ export function SendTextForm() {
           onChange={(event) => setReplyId(event.target.value)}
         />
       </div>
+      {statusRecipient && (
+        <label className="flex items-center gap-2 text-sm">
+          <Switch checked={allowReshare} onCheckedChange={setAllowReshare} />
+          Allow resharing
+        </label>
+      )}
       <ScheduleFields draft={draft} patch={patch} />
       <FormActions
         submitLabel="Send message"

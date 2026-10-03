@@ -82,3 +82,20 @@ describe('schedule fields', () => {
     }
   })
 })
+
+describe('allow_reshare', () => {
+  it('sends allow_reshare on text, image, and video requests', () => {
+    const phone = 'status@broadcast'
+    expect(textRequest({ phone, message: 'hi', allow_reshare: true }).json).toMatchObject({
+      allow_reshare: true,
+    })
+    for (const request of [
+      imageRequest({ phone, allow_reshare: true }),
+      videoRequest({ phone, allow_reshare: true }),
+    ]) {
+      expect(Object.fromEntries(formFields(request.form ?? {}))).toMatchObject({
+        allow_reshare: true,
+      })
+    }
+  })
+})

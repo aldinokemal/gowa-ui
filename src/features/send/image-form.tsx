@@ -11,12 +11,14 @@ import { useActionMutation } from '@/hooks/use-action-mutation'
 import { useRecipientJid } from '@/stores/recipient'
 import { ScheduleFields } from '@/features/send/schedule-fields'
 import { useScheduleDraft } from '@/features/send/use-schedule-draft'
+import { useAllowReshare } from '@/features/send/use-allow-reshare'
 
 export function SendImageForm() {
   const jid = useRecipientJid()
   const [source, setSource] = useState<FileOrUrl>({ url: '' })
   const [caption, setCaption] = useState('')
   const [viewOnce, setViewOnce] = useState(false)
+  const { statusRecipient, allowReshare, setAllowReshare } = useAllowReshare()
   const [quality, setQuality] = useState<MediaQuality>('standard')
   const { draft, patch, reset: resetSchedule } = useScheduleDraft()
 
@@ -26,6 +28,7 @@ export function SendImageForm() {
       setSource({ url: '' })
       setCaption('')
       setViewOnce(false)
+      setAllowReshare(false)
       setQuality('standard')
       resetSchedule()
     },
@@ -37,6 +40,7 @@ export function SendImageForm() {
     fileUrl: source.url || undefined,
     caption,
     view_once: viewOnce,
+    allow_reshare: allowReshare || undefined,
     quality,
     // view_once messages cannot be forwarded per the WhatsApp protocol
     is_forwarded: false,
@@ -63,6 +67,12 @@ export function SendImageForm() {
         <Switch checked={viewOnce} onCheckedChange={setViewOnce} />
         View once
       </label>
+      {statusRecipient && (
+        <label className="flex items-center gap-2 text-sm">
+          <Switch checked={allowReshare} onCheckedChange={setAllowReshare} />
+          Allow resharing
+        </label>
+      )}
       <MediaQualityField value={quality} onChange={setQuality} />
       <ScheduleFields draft={draft} patch={patch} />
       <FormActions
