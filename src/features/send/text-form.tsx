@@ -7,17 +7,16 @@ import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
 import { useActionMutation } from '@/hooks/use-action-mutation'
-import { isStatus } from '@/lib/jid'
-import { useRecipientJid, useRecipientStore } from '@/stores/recipient'
+import { useRecipientJid } from '@/stores/recipient'
 import { ScheduleFields } from '@/features/send/schedule-fields'
 import { useScheduleDraft } from '@/features/send/use-schedule-draft'
+import { useAllowReshare } from '@/features/send/use-allow-reshare'
 
 export function SendTextForm() {
   const jid = useRecipientJid()
   const [message, setMessage] = useState('')
   const [replyId, setReplyId] = useState('')
-  const statusRecipient = useRecipientStore((state) => isStatus(state.recipient.type))
-  const [allowReshare, setAllowReshare] = useState(false)
+  const { statusRecipient, allowReshare, setAllowReshare } = useAllowReshare()
   const { draft, patch, reset: resetSchedule } = useScheduleDraft()
 
   const mutation = useActionMutation(sendText, {
@@ -34,7 +33,7 @@ export function SendTextForm() {
     phone: jid,
     message,
     reply_message_id: replyId || undefined,
-    allow_reshare: statusRecipient && allowReshare ? true : undefined,
+    allow_reshare: allowReshare || undefined,
     ...draft,
   }
 

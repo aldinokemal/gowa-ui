@@ -8,18 +8,17 @@ import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { MediaQualityField } from '@/features/send/media-quality-field'
 import { useActionMutation } from '@/hooks/use-action-mutation'
-import { isStatus } from '@/lib/jid'
-import { useRecipientJid, useRecipientStore } from '@/stores/recipient'
+import { useRecipientJid } from '@/stores/recipient'
 import { ScheduleFields } from '@/features/send/schedule-fields'
 import { useScheduleDraft } from '@/features/send/use-schedule-draft'
+import { useAllowReshare } from '@/features/send/use-allow-reshare'
 
 export function SendVideoForm() {
   const jid = useRecipientJid()
   const [source, setSource] = useState<FileOrUrl>({ url: '' })
   const [caption, setCaption] = useState('')
   const [viewOnce, setViewOnce] = useState(false)
-  const statusRecipient = useRecipientStore((state) => isStatus(state.recipient.type))
-  const [allowReshare, setAllowReshare] = useState(false)
+  const { statusRecipient, allowReshare, setAllowReshare } = useAllowReshare()
   const [quality, setQuality] = useState<MediaQuality>('standard')
   const [gifPlayback, setGifPlayback] = useState(false)
   const { draft, patch, reset: resetSchedule } = useScheduleDraft()
@@ -43,7 +42,7 @@ export function SendVideoForm() {
     fileUrl: source.url || undefined,
     caption,
     view_once: viewOnce,
-    allow_reshare: statusRecipient && allowReshare ? true : undefined,
+    allow_reshare: allowReshare || undefined,
     quality,
     gif_playback: gifPlayback,
     // view_once messages cannot be forwarded per the WhatsApp protocol
