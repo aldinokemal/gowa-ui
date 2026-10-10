@@ -3,6 +3,7 @@ import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-quer
 import { Loader2, Send } from 'lucide-react'
 import { getChatMessages, type ChatInfo, type MessageInfo } from '@/api/chat'
 import { sendText } from '@/api/send'
+import { FormattedText } from '@/features/chat/formatted-text'
 import { MessageMedia } from '@/features/chat/message-media'
 import { ChatControls } from '@/features/chat/chat-controls'
 import { Button } from '@/components/ui/button'
@@ -44,7 +45,7 @@ function MessageBubble({ message, deviceId }: { message: MessageInfo; deviceId: 
             {senderDisplayName(message)}
           </p>
         )}
-        {message.content && <p className="break-words whitespace-pre-wrap">{message.content}</p>}
+        {message.content && <FormattedText text={message.content} />}
         {hasMedia && <MessageMedia message={message} deviceId={deviceId} />}
         {message.reactions && message.reactions.length > 0 && (
           <p className="mt-1 text-xs">{message.reactions.map((r) => r.emoji).join(' ')}</p>
