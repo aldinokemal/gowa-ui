@@ -52,6 +52,15 @@ describe('parseInline', () => {
   it('leaves unmatched markers as text', () => {
     expect(parseInline('price *10')).toEqual([text('price *10')])
   })
+
+  it('keeps many unmatched openers as text and still parses other markers', () => {
+    const unmatched = '*a '.repeat(5000)
+    expect(parseInline(unmatched)).toEqual([text(unmatched)])
+    expect(parseInline(`${unmatched}_done_`)).toEqual([
+      text(unmatched),
+      { type: 'italic', children: [text('done')] },
+    ])
+  })
 })
 
 describe('parseWhatsAppText', () => {

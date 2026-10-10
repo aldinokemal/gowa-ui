@@ -112,13 +112,17 @@ function findClose(text: string, marker: string, openIndex: number): number {
 /** Parses inline markers in a single line of plain text. */
 export function parseInline(text: string): InlineNode[] {
   const nodes: InlineNode[] = []
+  // A failed closer scan for a marker also fails for every later opener of that
+  // marker, so skip repeat scans to keep unmatched markers linear.
+  const unclosed = new Set<string>()
   let buffer = ''
   let index = 0
   while (index < text.length) {
     const char = text[index]
     const type = INLINE_MARKERS[char]
-    if (type && canOpen(text, index)) {
+    if (type && !unclosed.has(char) && canOpen(text, index)) {
       const close = findClose(text, char, index)
+      if (close === -1) unclosed.add(char)
       if (close !== -1) {
         if (buffer) nodes.push({ type: 'text', text: buffer })
         buffer = ''
