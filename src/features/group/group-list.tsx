@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { ChevronRight, LogOut, RefreshCw, Search, Users } from 'lucide-react'
 import { toast } from 'sonner'
 import { leaveGroup, listMyGroups, type MyGroup } from '@/api/group'
@@ -21,6 +21,7 @@ import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useSelectedDevice } from '@/hooks/use-device-guard'
 import { toApiError } from '@/lib/api-error'
+import { usePrivateQuery } from '@/lib/private-query'
 import { formatDate } from '@/lib/format'
 
 /** Strip the @server suffix from a JID for compact display. */
@@ -40,7 +41,7 @@ export function GroupDirectory({ onSelect }: { onSelect: (group: MyGroup) => voi
     isFetching,
     error,
     refetch,
-  } = useQuery({
+  } = usePrivateQuery({
     queryKey: ['groups', deviceId],
     queryFn: listMyGroups,
     enabled: !!deviceId,

@@ -17,20 +17,30 @@ export interface ChatSelection {
   chat: ChatInfo
 }
 
-export function chatListQueryKey(deviceId: string, filters: ChatListFilters) {
-  return ['chats', deviceId, filters] as const
+export function chatListQueryKey(
+  deviceId: string,
+  filters: ChatListFilters,
+  connectionId: string | null,
+) {
+  return ['chats', deviceId, filters, connectionId] as const
 }
 
 export function chatMessagesQueryKey(
   deviceId: string,
   chatJid: string,
   filters: ChatMessagesFilters,
+  connectionId: string | null,
 ) {
-  return ['chat-messages', deviceId, chatJid, filters] as const
+  return ['chat-messages', deviceId, chatJid, filters, connectionId] as const
 }
 
-export function messageMediaQueryKey(deviceId: string, messageId: string, chatJid: string) {
-  return ['media', deviceId, messageId, chatJid] as const
+export function messageMediaQueryKey(
+  deviceId: string,
+  messageId: string,
+  chatJid: string,
+  connectionId: string | null,
+) {
+  return ['media', deviceId, messageId, chatJid, connectionId] as const
 }
 
 export function selectedChatForDevice(

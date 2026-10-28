@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { keepPreviousData, useQuery } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { Loader2, Search } from 'lucide-react'
 import { listChats, type ChatInfo } from '@/api/chat'
 import { Button } from '@/components/ui/button'
@@ -9,7 +9,9 @@ import { Switch } from '@/components/ui/switch'
 import { chatListQueryKey } from '@/features/chat/device-scope'
 import { chatDisplayName } from '@/features/chat/display-name'
 import { formatDate, isZeroTime } from '@/lib/format'
+import { connectionPlaceholder, trackedQueryFn } from '@/lib/private-query'
 import { cn } from '@/lib/utils'
+import { useConnection } from '@/stores/connection'
 
 const PAGE_SIZE = 25
 
@@ -22,13 +24,15 @@ export function ChatList({
   selectedJid: string | null
   onSelect: (chat: ChatInfo) => void
 }) {
+  const connectionId = useConnection((state) => state.connectionId)
   const [search, setSearch] = useState('')
   const [hasMedia, setHasMedia] = useState(false)
   const [offset, setOffset] = useState(0)
+  const filters = { search, hasMedia, offset }
 
   const query = useQuery({
-    queryKey: chatListQueryKey(deviceId, { search, hasMedia, offset }),
-    queryFn: () =>
+    queryKey: chatListQueryKey(deviceId, filters, connectionId),
+    queryFn: trackedQueryFn(connectionId, () =>
       listChats(
         {
           search: search || undefined,
@@ -38,7 +42,9 @@ export function ChatList({
         },
         deviceId,
       ),
-    placeholderData: keepPreviousData,
+    ),
+    enabled: connectionId !== null,
+    placeholderData: connectionPlaceholder<Awaited<ReturnType<typeof listChats>>>(connectionId),
   })
 
   const chats = query.data?.data ?? []

@@ -1,8 +1,8 @@
 import { create } from 'zustand'
 import { backoffDelay } from '@/lib/backoff'
 import { emitWsEvent, type WsEvent } from '@/lib/events'
-import { b64encode, toWebSocketUrl } from '@/lib/url'
-import { useConnection } from '@/stores/connection'
+import { b64encode, refusesInsecureCredentials, toWebSocketUrl } from '@/lib/url'
+import { hasBasicCredentials, useConnection } from '@/stores/connection'
 import { useDeviceStore } from '@/stores/device'
 
 export type WsStatus = 'disconnected' | 'connecting' | 'connected'
@@ -18,10 +18,20 @@ class WsClient {
 
   /** Reconcile the socket with the current connection + device selection. */
   sync(): void {
-    const { status, baseUrl, username, password } = useConnection.getState()
+    const { status, baseUrl, username, password, allowInsecureHttp } = useConnection.getState()
     const deviceId = useDeviceStore.getState().selectedDeviceId
 
     if (status !== 'connected' || !baseUrl) {
+      this.stop()
+      return
+    }
+    if (
+      refusesInsecureCredentials(
+        baseUrl,
+        hasBasicCredentials(username, password),
+        allowInsecureHttp,
+      )
+    ) {
       this.stop()
       return
     }

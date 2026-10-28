@@ -1,12 +1,23 @@
 import { describe, expect, it } from 'vitest'
-import { b64encode, joinUrl, normalizeBaseUrl, rerootServerUrl, toWebSocketUrl } from './url'
+import {
+  b64encode,
+  isLoopbackHostname,
+  isRemoteInsecureHttp,
+  joinUrl,
+  normalizeBaseUrl,
+  refusesInsecureCredentials,
+  rerootServerUrl,
+  toWebSocketUrl,
+} from './url'
 
 describe('normalizeBaseUrl', () => {
-  it('adds http:// when the scheme is missing', () => {
-    expect(normalizeBaseUrl('localhost:3000')).toBe('http://localhost:3000')
+  it('adds https:// when the scheme is missing', () => {
+    expect(normalizeBaseUrl('localhost:3000')).toBe('https://localhost:3000')
+    expect(normalizeBaseUrl('wa.example.com/base')).toBe('https://wa.example.com/base')
   })
 
-  it('keeps https and strips trailing slashes', () => {
+  it('keeps an explicit scheme and strips trailing slashes', () => {
+    expect(normalizeBaseUrl('http://localhost:3000/')).toBe('http://localhost:3000')
     expect(normalizeBaseUrl('https://wa.example.com/base///')).toBe('https://wa.example.com/base')
   })
 })
@@ -59,6 +70,36 @@ describe('toWebSocketUrl', () => {
     expect(url.protocol).toBe('ws:')
     expect(url.pathname).toBe('/ws')
     expect([...url.searchParams.keys()]).toHaveLength(0)
+  })
+})
+
+describe('credential transport', () => {
+  it('treats loopback names as local', () => {
+    expect(isLoopbackHostname('localhost')).toBe(true)
+    expect(isLoopbackHostname('api.localhost')).toBe(true)
+    expect(isLoopbackHostname('127.0.0.1')).toBe(true)
+    expect(isLoopbackHostname('::1')).toBe(true)
+    expect(isLoopbackHostname('example.com')).toBe(false)
+    expect(isLoopbackHostname('10.0.0.8')).toBe(false)
+  })
+
+  it('flags remote http and ws urls', () => {
+    expect(isRemoteInsecureHttp('http://example.com')).toBe(true)
+    expect(isRemoteInsecureHttp('ws://10.1.1.1:3000')).toBe(true)
+    expect(isRemoteInsecureHttp('http://127.0.0.1:3000')).toBe(false)
+    expect(isRemoteInsecureHttp('https://example.com')).toBe(false)
+  })
+
+  it('refuses credential-bearing remote http unless the operator opts in', () => {
+    expect(refusesInsecureCredentials('http://example.com', true, false)).toBe(true)
+    expect(refusesInsecureCredentials('ws://example.com/ws', true, false)).toBe(true)
+    expect(refusesInsecureCredentials('http://user:secret@example.com', false, false)).toBe(true)
+    expect(refusesInsecureCredentials('http://example.com', true, true)).toBe(false)
+    expect(refusesInsecureCredentials('https://example.com', true, false)).toBe(false)
+    expect(refusesInsecureCredentials('http://localhost:3000', true, false)).toBe(false)
+    expect(refusesInsecureCredentials('http://127.0.0.1:3000', true, false)).toBe(false)
+    expect(refusesInsecureCredentials('http://[::1]:3000', true, false)).toBe(false)
+    expect(refusesInsecureCredentials('http://example.com', false, false)).toBe(false)
   })
 })
 

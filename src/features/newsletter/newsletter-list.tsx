@@ -1,4 +1,4 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQueryClient } from '@tanstack/react-query'
 import { Loader2 } from 'lucide-react'
 import { unfollowNewsletter } from '@/api/newsletter'
 import { listNewsletters } from '@/api/user'
@@ -8,13 +8,14 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { useActionMutation } from '@/hooks/use-action-mutation'
 import { useSelectedDevice } from '@/hooks/use-device-guard'
 import { toApiError } from '@/lib/api-error'
+import { usePrivateQuery } from '@/lib/private-query'
 import { formatDate } from '@/lib/format'
 
 export function NewsletterList() {
   const device = useSelectedDevice()
   const queryClient = useQueryClient()
 
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, error } = usePrivateQuery({
     queryKey: ['newsletters', device],
     queryFn: listNewsletters,
     enabled: !!device,

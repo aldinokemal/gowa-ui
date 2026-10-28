@@ -41,11 +41,30 @@ export function toCurl(request: ApiRequest, opts: CurlOptions): string {
     parts.push(`-d ${shellQuote(body)}`)
   }
   for (const [key, value] of formFields(request.form ?? {})) {
-    // A browser never learns a picked file's path, so the name stands in for it.
-    const field = value instanceof File ? `${key}=@${value.name}` : `${key}=${value}`
-    parts.push(`-F ${shellQuote(field)}`)
+    if (value instanceof File) {
+      // A browser never learns a picked file's path, so the name stands in for it.
+      // Quote the name: curl's -F grammar treats ; , @ and < as syntax.
+      parts.push(`-F ${shellQuote(`${key}=@${curlMultipartFilename(value.name)}`)}`)
+    } else {
+      // --form-string keeps a leading < or @ as text instead of a local file read.
+      parts.push(`--form-string ${shellQuote(`${key}=${value}`)}`)
+    }
   }
   return parts.join(` \\\n${INDENT}`)
+}
+
+/**
+ * Quote a filename for curl's multipart grammar. Inside the quotes, a
+ * backslash escapes the next character, so commas, semicolons, and quotes
+ * stay part of the name.
+ */
+function curlMultipartFilename(filename: string): string {
+  const escaped = filename
+    .replaceAll('\\', '\\\\')
+    .replaceAll('"', '\\"')
+    .replaceAll('\r', '\\r')
+    .replaceAll('\n', '\\n')
+  return `"${escaped}"`
 }
 
 /** True when the command carries a file placeholder the user must edit. */

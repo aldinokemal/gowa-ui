@@ -1,5 +1,5 @@
 import { useLayoutEffect, useMemo, useRef, useState, type FormEvent } from 'react'
-import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Loader2, Send } from 'lucide-react'
 import { getChatMessages, type ChatInfo, type MessageInfo } from '@/api/chat'
 import { sendText } from '@/api/send'
@@ -10,6 +10,8 @@ import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Switch } from '@/components/ui/switch'
 import { chatMessagesQueryKey } from '@/features/chat/device-scope'
+import { connectionPlaceholder, trackedQueryFn } from '@/lib/private-query'
+import { useConnection } from '@/stores/connection'
 import { chatDisplayName, senderDisplayName } from '@/features/chat/display-name'
 import { useActionMutation } from '@/hooks/use-action-mutation'
 import { formatDate } from '@/lib/format'
@@ -59,6 +61,7 @@ function MessageBubble({ message, deviceId }: { message: MessageInfo; deviceId: 
 
 export function MessageView({ chat, deviceId }: { chat: ChatInfo; deviceId: string }) {
   const queryClient = useQueryClient()
+  const connectionId = useConnection((state) => state.connectionId)
   const messageList = useRef<HTMLDivElement>(null)
   const [search, setSearch] = useState('')
   const [mediaOnly, setMediaOnly] = useState(false)
@@ -66,9 +69,10 @@ export function MessageView({ chat, deviceId }: { chat: ChatInfo; deviceId: stri
   const [draft, setDraft] = useState('')
   const { draft: scheduleDraft, patch: patchSchedule, reset: resetSchedule } = useScheduleDraft()
 
+  const filters = { search, mediaOnly, offset }
   const query = useQuery({
-    queryKey: chatMessagesQueryKey(deviceId, chat.jid, { search, mediaOnly, offset }),
-    queryFn: () =>
+    queryKey: chatMessagesQueryKey(deviceId, chat.jid, filters, connectionId),
+    queryFn: trackedQueryFn(connectionId, () =>
       getChatMessages(
         chat.jid,
         {
@@ -79,7 +83,10 @@ export function MessageView({ chat, deviceId }: { chat: ChatInfo; deviceId: stri
         },
         deviceId,
       ),
-    placeholderData: keepPreviousData,
+    ),
+    enabled: connectionId !== null,
+    placeholderData:
+      connectionPlaceholder<Awaited<ReturnType<typeof getChatMessages>>>(connectionId),
   })
 
   const messages = useMemo(
