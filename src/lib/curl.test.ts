@@ -121,6 +121,17 @@ describe('toCurl', () => {
     expect(command).toContain(`-F 'note=@"photo'\\''s.jpg"'`)
   })
 
+  it('keeps a line break in a file name so the copied command opens that file', () => {
+    const request: ApiRequest = {
+      method: 'POST',
+      path: '/send/file',
+      form: { file: new File(['x'], 'a\r\nb.txt') },
+    }
+    const command = toCurl(request, base)
+    expect(command).toContain('file=@"a\r\nb.txt"')
+    expect(command).not.toContain(String.raw`file=@"a\r\nb.txt"`)
+  })
+
   it('repeats an array field once per item, matching what is sent', () => {
     const request: ApiRequest = {
       method: 'POST',
