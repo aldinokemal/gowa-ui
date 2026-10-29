@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useAppInfo } from '@/hooks/use-app-info'
+import { MetricsCard } from '@/features/server/metrics-card'
 import { formatBytes } from '@/lib/format'
 import { useConnection } from '@/stores/connection'
 
@@ -25,7 +26,7 @@ export default function SettingsPage() {
     <div className="flex max-w-2xl flex-col gap-4">
       <PageHeader
         title="Settings"
-        description="Dashboard connection, server info, and appearance."
+        description="Dashboard connection, server info and health, and appearance."
       />
 
       <Card>
@@ -83,6 +84,8 @@ export default function SettingsPage() {
           )}
         </CardContent>
       </Card>
+
+      <MetricsCard />
 
       <Card>
         <CardHeader>

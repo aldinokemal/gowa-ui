@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatBytes, formatDay, isZeroTime } from './format'
+import { formatBytes, formatDay, formatDuration, isZeroTime } from './format'
 
 describe('isZeroTime', () => {
   it('treats Go zero time, epoch 0, empty, and garbage as zero', () => {
@@ -39,5 +39,14 @@ describe('formatBytes', () => {
   it('scales into MB and GB', () => {
     expect(formatBytes(50_000_000)).toBe('50 MB')
     expect(formatBytes(2_500_000_000)).toBe('2.5 GB')
+  })
+})
+
+describe('formatDuration', () => {
+  it('shows the two largest units', () => {
+    expect(formatDuration(45)).toBe('0m')
+    expect(formatDuration(12 * 60)).toBe('12m')
+    expect(formatDuration(2 * 3600 + 5 * 60)).toBe('2h 5m')
+    expect(formatDuration(3 * 86_400 + 4 * 3600 + 59)).toBe('3d 4h')
   })
 })

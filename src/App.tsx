@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { Navigate, Route, Routes } from 'react-router-dom'
+import { toast } from 'sonner'
 import { AppShell } from '@/components/layout/app-shell'
 import { onWsEvent } from '@/lib/events'
 import { wsClient } from '@/lib/ws'
@@ -43,6 +44,14 @@ function useBootstrap() {
           case 'DEVICE_LOGGED_OUT':
             void queryClient.invalidateQueries({ queryKey: ['devices'] })
             break
+          case 'DEVICE_STREAM_REPLACED':
+          case 'DEVICE_TEMPORARY_BAN':
+          case 'DEVICE_REACHOUT_TIMELOCK': {
+            void queryClient.invalidateQueries({ queryKey: ['devices'] })
+            const deviceId = (event.result as { device_id?: string } | null)?.device_id
+            toast.warning(deviceId ? `${deviceId}: ${event.message}` : event.message)
+            break
+          }
           case 'DEVICE_REMOVED': {
             void queryClient.invalidateQueries({ queryKey: ['devices'] })
             const removed = (event.result as { device_id?: string } | null)?.device_id

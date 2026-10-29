@@ -27,6 +27,14 @@ export function isApiError(value: unknown): value is ApiError {
   )
 }
 
+/** gowa rejects changes from browser origins it does not trust; say which setting fixes it. */
+function crossSiteHint(): string {
+  const origin = globalThis.location?.origin
+  return origin?.startsWith('http')
+    ? ` — add ${origin} to the server's APP_TRUSTED_ORIGINS`
+    : " — open this dashboard from an http(s) origin listed in the server's APP_TRUSTED_ORIGINS"
+}
+
 export function toApiError(error: unknown): ApiError {
   if (error instanceof TransportGuardError) {
     return { status: error.status, code: error.code, message: error.message }
@@ -35,10 +43,12 @@ export function toApiError(error: unknown): ApiError {
   // itself, which would satisfy the structural ApiError check.
   if (error instanceof AxiosError) {
     const data = error.response?.data as Partial<ResponseData<unknown>> | undefined
+    const code = data?.code ?? (error.response ? 'HTTP_ERROR' : 'NETWORK_ERROR')
+    const message = data?.message ?? error.message
     return {
       status: error.response?.status ?? 0,
-      code: data?.code ?? (error.response ? 'HTTP_ERROR' : 'NETWORK_ERROR'),
-      message: data?.message ?? error.message,
+      code,
+      message: code === 'CROSS_SITE_REQUEST_BLOCKED' ? message + crossSiteHint() : message,
     }
   }
   if (isApiError(error)) return error

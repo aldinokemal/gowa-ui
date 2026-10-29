@@ -1,4 +1,5 @@
 import type { NewsletterMetadata } from '@/api/newsletter'
+import { exec, type ApiRequest } from '@/api/request'
 import { http, results } from '@/lib/http'
 
 export interface UserInfoDevice {
@@ -60,6 +61,11 @@ export interface CheckResponse {
   is_on_whatsapp: boolean
 }
 
+export interface SubscribePresenceResponse {
+  subscribed: boolean
+  jid: string
+}
+
 export interface BusinessProfileCategory {
   id: string
   name: string
@@ -119,6 +125,14 @@ export function listContacts(): Promise<ContactsResponse> {
 
 export function checkUser(phone: string): Promise<CheckResponse> {
   return results<CheckResponse>(http.get('/user/check', { params: { phone } }))
+}
+
+export function subscribePresenceRequest(phone: string): ApiRequest {
+  return { method: 'POST', path: '/user/presence/subscribe', json: { phone } }
+}
+
+export function subscribePresence(phone: string): Promise<SubscribePresenceResponse> {
+  return exec(subscribePresenceRequest(phone))
 }
 
 export function getBusinessProfile(phone: string): Promise<BusinessProfileResponse> {

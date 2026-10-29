@@ -32,6 +32,10 @@ export function readRequest(messageId: string, payload: { phone: string }) {
   return messageRequest(messageId, 'read', payload)
 }
 
+export function playedRequest(messageId: string, payload: { phone: string }) {
+  return messageRequest(messageId, 'played', payload)
+}
+
 export function starRequest(messageId: string, payload: { phone: string }) {
   return messageRequest(messageId, 'star', { ...payload, is_starred: true })
 }

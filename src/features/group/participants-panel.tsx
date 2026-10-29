@@ -1,10 +1,19 @@
 import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { Loader2, MoreVertical, ShieldMinus, ShieldPlus, UserMinus, UserPlus } from 'lucide-react'
+import {
+  Download,
+  Loader2,
+  MoreVertical,
+  ShieldMinus,
+  ShieldPlus,
+  UserMinus,
+  UserPlus,
+} from 'lucide-react'
 import { toast } from 'sonner'
 import {
   addParticipants,
   demoteParticipants,
+  exportParticipantsCsv,
   listParticipants,
   promoteParticipants,
   removeParticipants,
@@ -82,6 +91,19 @@ export function ParticipantsPanel({ groupJid }: { groupJid: string }) {
     onError: (mutationError) => toast.error(toApiError(mutationError).message),
   })
 
+  const exportCsv = useMutation({
+    mutationFn: () => exportParticipantsCsv(groupId),
+    onSuccess: (blob) => {
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `${groupId.split('@')[0]}-participants.csv`
+      link.click()
+      window.setTimeout(() => URL.revokeObjectURL(url))
+    },
+    onError: (mutationError) => toast.error(toApiError(mutationError).message),
+  })
+
   const participants = data?.participants ?? []
 
   return (
@@ -105,6 +127,20 @@ export function ParticipantsPanel({ groupJid }: { groupJid: string }) {
             <UserPlus className="size-4" />
           )}
           Add
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          disabled={exportCsv.isPending}
+          onClick={() => exportCsv.mutate()}
+        >
+          {exportCsv.isPending ? (
+            <Loader2 className="size-4 animate-spin" />
+          ) : (
+            <Download className="size-4" />
+          )}
+          CSV
         </Button>
       </form>
 

@@ -9,10 +9,12 @@ import {
   MapPin,
   MessageSquareText,
   Mic,
+  MousePointerClick,
   Radio,
   Send,
   Sticker,
   UserRound,
+  UserRoundSearch,
   Video,
 } from 'lucide-react'
 import { PageHeader } from '@/components/shared/page-header'
@@ -44,9 +46,12 @@ import { SendLinkForm } from '@/features/send/link-form'
 import { SendPollForm } from '@/features/send/poll-form'
 import { SendPresenceForm } from '@/features/send/presence-form'
 import { SendChatPresenceForm } from '@/features/send/chat-presence-form'
+import { SendInteractiveForm } from '@/features/send/interactive-form'
+import { SubscribePresenceForm } from '@/features/send/subscribe-presence-form'
 import {
   DeleteForm,
   ForwardForm,
+  PlayedForm,
   ReactForm,
   ReadForm,
   RevokeForm,
@@ -83,6 +88,12 @@ const composeGroups: { label: string; items: ComposeType[] }[] = [
       { value: 'location', label: 'Location', icon: MapPin, form: <SendLocationForm /> },
       { value: 'link', label: 'Link', icon: Link2, form: <SendLinkForm /> },
       { value: 'poll', label: 'Poll', icon: BarChart3, form: <SendPollForm /> },
+      {
+        value: 'interactive',
+        label: 'Interactive',
+        icon: MousePointerClick,
+        form: <SendInteractiveForm />,
+      },
     ],
   },
   {
@@ -94,6 +105,12 @@ const composeGroups: { label: string; items: ComposeType[] }[] = [
         label: 'Chat presence',
         icon: Keyboard,
         form: <SendChatPresenceForm />,
+      },
+      {
+        value: 'subscribe-presence',
+        label: 'Watch presence',
+        icon: UserRoundSearch,
+        form: <SubscribePresenceForm />,
       },
     ],
   },
@@ -170,6 +187,11 @@ const actions = [
   { value: 'react', label: 'React', render: (id: string) => <ReactForm messageId={id} /> },
   { value: 'update', label: 'Edit text', render: (id: string) => <UpdateForm messageId={id} /> },
   { value: 'read', label: 'Mark as read', render: (id: string) => <ReadForm messageId={id} /> },
+  {
+    value: 'played',
+    label: 'Mark audio as played',
+    render: (id: string) => <PlayedForm messageId={id} />,
+  },
   { value: 'star', label: 'Star / Unstar', render: (id: string) => <StarForm messageId={id} /> },
   {
     value: 'revoke',

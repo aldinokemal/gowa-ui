@@ -1,7 +1,7 @@
 import { useLayoutEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Loader2, Send } from 'lucide-react'
-import { getChatMessages, type ChatInfo, type MessageInfo } from '@/api/chat'
+import { History, Loader2, Send } from 'lucide-react'
+import { getChatMessages, requestChatHistory, type ChatInfo, type MessageInfo } from '@/api/chat'
 import { sendText } from '@/api/send'
 import { MessageMedia } from '@/features/chat/message-media'
 import { ChatControls } from '@/features/chat/chat-controls'
@@ -31,7 +31,25 @@ function dayKey(timestamp: string): string {
   return new Date(timestamp).toDateString()
 }
 
-function MessageBubble({ message, deviceId }: { message: MessageInfo; deviceId: string }) {
+function repliedToId(message: MessageInfo): string | undefined {
+  if (!message.context_metadata) return undefined
+  try {
+    return (JSON.parse(message.context_metadata) as { replied_to_id?: string }).replied_to_id
+  } catch {
+    return undefined
+  }
+}
+
+function MessageBubble({
+  message,
+  quoted,
+  deviceId,
+}: {
+  message: MessageInfo
+  /** The replied-to message; null when it is not on this page, undefined when not a reply. */
+  quoted?: MessageInfo | null
+  deviceId: string
+}) {
   const hasMedia = message.media_type && message.media_type !== ''
   return (
     <div className={cn('flex', message.is_from_me ? 'justify-end' : 'justify-start')}>
@@ -45,6 +63,22 @@ function MessageBubble({ message, deviceId }: { message: MessageInfo; deviceId: 
           <p className="text-muted-foreground mb-0.5 font-mono text-xs">
             {senderDisplayName(message)}
           </p>
+        )}
+        {quoted !== undefined && (
+          <div className="border-primary/60 bg-background/50 mb-1 rounded-md border-l-2 px-2 py-1 text-xs">
+            {quoted ? (
+              <>
+                <p className="text-muted-foreground font-mono">
+                  {quoted.is_from_me ? 'You' : senderDisplayName(quoted)}
+                </p>
+                <p className="line-clamp-2 break-words">
+                  {quoted.content || quoted.media_type || 'Message'}
+                </p>
+              </>
+            ) : (
+              <p className="text-muted-foreground italic">Reply to an earlier message</p>
+            )}
+          </div>
         )}
         {message.content && <p className="break-words whitespace-pre-wrap">{message.content}</p>}
         {hasMedia && <MessageMedia message={message} deviceId={deviceId} />}
@@ -93,6 +127,10 @@ export function MessageView({ chat, deviceId }: { chat: ChatInfo; deviceId: stri
     () => sortMessagesChronologically(query.data?.data ?? []),
     [query.data?.data],
   )
+  const messagesById = useMemo(
+    () => new Map(messages.map((message) => [message.id, message])),
+    [messages],
+  )
   const total = query.data?.pagination.total ?? 0
   const responseChat = query.data?.chat_info
   const resolvedChat = responseChat?.jid === chat.jid ? responseChat : chat
@@ -117,6 +155,15 @@ export function MessageView({ chat, deviceId }: { chat: ChatInfo; deviceId: stri
       },
     },
   )
+
+  const replyTarget = (message: MessageInfo) => {
+    const id = repliedToId(message)
+    return id === undefined ? undefined : (messagesById.get(id) ?? null)
+  }
+
+  const historyMutation = useActionMutation(() => requestChatHistory(chat.jid, PAGE_SIZE), {
+    successMessage: 'Asked the phone for older messages; they appear once it answers',
+  })
 
   const onSend = (event: FormEvent) => {
     event.preventDefault()
@@ -188,7 +235,11 @@ export function MessageView({ chat, deviceId }: { chat: ChatInfo; deviceId: stri
                         </span>
                       </div>
                     )}
-                    <MessageBubble message={message} deviceId={deviceId} />
+                    <MessageBubble
+                      message={message}
+                      quoted={replyTarget(message)}
+                      deviceId={deviceId}
+                    />
                   </div>
                 )
               })}
@@ -200,6 +251,17 @@ export function MessageView({ chat, deviceId }: { chat: ChatInfo; deviceId: stri
       <div className="text-muted-foreground flex items-center justify-between text-xs">
         <span>{total} messages</span>
         <div className="flex gap-1">
+          {total > 0 && offset + PAGE_SIZE >= total && (
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={historyMutation.isPending}
+              onClick={() => historyMutation.mutate(undefined)}
+            >
+              <History className="size-4" />
+              Fetch older from phone
+            </Button>
+          )}
           <Button
             variant="outline"
             size="sm"

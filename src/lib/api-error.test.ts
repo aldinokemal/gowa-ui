@@ -20,6 +20,17 @@ describe('toApiError', () => {
     expect(error).toEqual({ status: 404, code: 'DEVICE_NOT_FOUND', message: 'device not found' })
   })
 
+  it('says how to trust this origin when the server blocks a cross-site request', () => {
+    const error = toApiError(
+      axiosErrorWithResponse(403, {
+        code: 'CROSS_SITE_REQUEST_BLOCKED',
+        message: 'browser request origin is not allowed',
+      }),
+    )
+    expect(error.code).toBe('CROSS_SITE_REQUEST_BLOCKED')
+    expect(error.message).toMatch(/^browser request origin is not allowed — .*APP_TRUSTED_ORIGINS/)
+  })
+
   it('maps a missing response to NETWORK_ERROR', () => {
     const error = toApiError(new AxiosError('Network Error', 'ERR_NETWORK'))
     expect(error.status).toBe(0)

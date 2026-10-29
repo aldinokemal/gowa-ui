@@ -29,6 +29,8 @@ export interface MessageInfo {
   is_from_me: boolean
   media_type: string
   reactions?: ReactionInfo[]
+  /** JSON such as {"replied_to_id":"3EB0..."} when the message is a reply. */
+  context_metadata?: string
   filename: string
   url: string
   file_length: number
@@ -77,6 +79,11 @@ export function pinChat(chatJid: string, pinned: boolean) {
 
 export function archiveChat(chatJid: string, archived: boolean) {
   return results(http.post(`/chat/${enc(chatJid)}/archive`, { archived }))
+}
+
+/** Asks the phone for older messages; they arrive later through history sync. */
+export function requestChatHistory(chatJid: string, count: number) {
+  return results(http.post(`/chat/${enc(chatJid)}/history`, { count }))
 }
 
 export function setDisappearing(chatJid: string, timer_seconds: number) {
