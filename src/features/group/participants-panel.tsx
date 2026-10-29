@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Loader2, MoreVertical, ShieldMinus, ShieldPlus, UserMinus, UserPlus } from 'lucide-react'
 import { toast } from 'sonner'
 import {
@@ -21,6 +21,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { toApiError } from '@/lib/api-error'
+import { usePrivateQuery } from '@/lib/private-query'
 
 /** Split an input into a trimmed list, one entry per comma. */
 function parseList(text: string): string[] {
@@ -39,7 +40,7 @@ export function ParticipantsPanel({ groupJid }: { groupJid: string }) {
   const [newParticipants, setNewParticipants] = useState('')
   const groupId = groupJid
 
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, error } = usePrivateQuery({
     queryKey: ['group-participants', groupId],
     queryFn: () => listParticipants({ group_id: groupId }),
     enabled: !!groupJid,

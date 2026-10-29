@@ -3,22 +3,52 @@ import { create } from 'zustand'
 import { createJSONStorage, persist } from 'zustand/middleware'
 import type { ResponseData } from '@/api/types'
 import { basicAuthHeader } from '@/lib/api-error'
-import { normalizeBaseUrl, sameOriginBaseUrl } from '@/lib/url'
+import { discardPrivateCache } from '@/lib/query-client'
+import { normalizeBaseUrl, refusesInsecureCredentials, sameOriginBaseUrl } from '@/lib/url'
 
 export type ConnectionStatus =
-  'booting' | 'unconfigured' | 'connected' | 'unauthorized' | 'unreachable'
+  'booting' | 'unconfigured' | 'connected' | 'unauthorized' | 'unreachable' | 'insecure'
 
-export type TestResult = 'ok' | 'unauthorized' | 'not-gowa' | 'unreachable'
+export type TestResult = 'ok' | 'unauthorized' | 'not-gowa' | 'unreachable' | 'insecure'
 
 export interface ConnectionState {
   baseUrl: string | null
   username: string | null
   password: string | null
+  /** Set when the operator accepts credential-bearing remote HTTP. */
+  allowInsecureHttp: boolean
+  /** Immutable id for this browser session with a server. Not a secret. */
+  connectionId: string | null
   status: ConnectionStatus
-  connect: (baseUrl: string, username?: string, password?: string) => Promise<TestResult>
+  connect: (
+    baseUrl: string,
+    username?: string,
+    password?: string,
+    allowInsecureHttp?: boolean,
+  ) => Promise<TestResult>
   boot: () => Promise<void>
   disconnect: () => void
   markUnauthorized: () => void
+}
+
+export function hasBasicCredentials(username?: string | null, password?: string | null): boolean {
+  return Boolean(username && password)
+}
+
+const memoryStore = new Map<string, string>()
+
+/** localStorage in the browser; a process-local map under Node tests. */
+function connectionStorage() {
+  if (typeof localStorage !== 'undefined') return localStorage
+  return {
+    getItem: (key: string) => memoryStore.get(key) ?? null,
+    setItem: (key: string, value: string) => {
+      memoryStore.set(key, value)
+    },
+    removeItem: (key: string) => {
+      memoryStore.delete(key)
+    },
+  }
 }
 
 /**
@@ -30,7 +60,7 @@ export async function probeServer(
   baseUrl: string,
   username?: string,
   password?: string,
-): Promise<TestResult> {
+): Promise<Exclude<TestResult, 'insecure'>> {
   try {
     const response = await axios.get<ResponseData<unknown>>(`${baseUrl}/devices`, {
       timeout: 8_000,
@@ -53,58 +83,114 @@ export async function probeServer(
 
 export const useConnection = create<ConnectionState>()(
   persist(
-    (set, get) => ({
-      baseUrl: null,
-      username: null,
-      password: null,
-      status: 'booting',
+    (set, get) => {
+      const adopt = (next: {
+        baseUrl: string
+        username: string | null
+        password: string | null
+        allowInsecureHttp: boolean
+      }) => {
+        // Cancel and drop the previous session before the new id is visible,
+        // so a late response cannot be stored for the new connection.
+        discardPrivateCache()
+        set({
+          ...next,
+          connectionId: crypto.randomUUID(),
+          status: 'connected',
+        })
+      }
 
-      connect: async (rawUrl, username, password) => {
-        const baseUrl = normalizeBaseUrl(rawUrl)
-        const result = await probeServer(baseUrl, username, password)
-        if (result === 'ok') {
-          set({
-            baseUrl,
-            username: username || null,
-            password: password || null,
-            status: 'connected',
-          })
-        }
-        return result
-      },
+      return {
+        baseUrl: null,
+        username: null,
+        password: null,
+        allowInsecureHttp: false,
+        connectionId: null,
+        status: 'booting',
 
-      boot: async () => {
-        const { baseUrl, username, password } = get()
-        if (baseUrl) {
-          const stored = await probeServer(baseUrl, username ?? undefined, password ?? undefined)
-          if (stored === 'ok') {
-            set({ status: 'connected' })
+        connect: async (rawUrl, username, password, allowInsecureHttp = false) => {
+          const baseUrl = normalizeBaseUrl(rawUrl)
+          const hasCredentials = hasBasicCredentials(username, password)
+          if (refusesInsecureCredentials(baseUrl, hasCredentials, allowInsecureHttp)) {
+            return 'insecure'
+          }
+          const result = await probeServer(baseUrl, username, password)
+          if (result === 'ok') {
+            adopt({
+              baseUrl,
+              username: username || null,
+              password: password || null,
+              allowInsecureHttp,
+            })
+          }
+          return result
+        },
+
+        boot: async () => {
+          const { baseUrl, username, password, allowInsecureHttp } = get()
+          if (baseUrl) {
+            const hasCredentials = hasBasicCredentials(username, password)
+            if (refusesInsecureCredentials(baseUrl, hasCredentials, allowInsecureHttp)) {
+              set({ status: 'insecure', connectionId: null })
+              return
+            }
+            const stored = await probeServer(baseUrl, username ?? undefined, password ?? undefined)
+            if (stored === 'ok') {
+              adopt({
+                baseUrl,
+                username,
+                password,
+                allowInsecureHttp,
+              })
+              return
+            }
+            set({
+              status: stored === 'unauthorized' ? 'unauthorized' : 'unreachable',
+              connectionId: null,
+            })
             return
           }
-          set({ status: stored === 'unauthorized' ? 'unauthorized' : 'unreachable' })
-          return
-        }
-        // Zero-config: the page may be served by gowa itself. The browser
-        // replays cached basic-auth credentials on same-origin requests.
-        const origin = sameOriginBaseUrl()
-        if ((await probeServer(origin)) === 'ok') {
-          set({ baseUrl: origin, status: 'connected' })
-          return
-        }
-        set({ status: 'unconfigured' })
-      },
+          // Zero-config: the page may be served by gowa itself. The browser
+          // replays cached basic-auth credentials on same-origin requests.
+          const origin = sameOriginBaseUrl()
+          if ((await probeServer(origin)) === 'ok') {
+            adopt({
+              baseUrl: origin,
+              username: null,
+              password: null,
+              allowInsecureHttp: false,
+            })
+            return
+          }
+          set({ status: 'unconfigured', connectionId: null })
+        },
 
-      disconnect: () =>
-        set({ baseUrl: null, username: null, password: null, status: 'unconfigured' }),
+        disconnect: () => {
+          discardPrivateCache()
+          set({
+            baseUrl: null,
+            username: null,
+            password: null,
+            allowInsecureHttp: false,
+            connectionId: null,
+            status: 'unconfigured',
+          })
+        },
 
-      markUnauthorized: () => {
-        if (get().status === 'connected') set({ status: 'unauthorized' })
-      },
-    }),
+        markUnauthorized: () => {
+          if (get().status === 'connected') set({ status: 'unauthorized' })
+        },
+      }
+    },
     {
       name: 'gowa-ui.connection.v1',
-      storage: createJSONStorage(() => localStorage),
-      partialize: ({ baseUrl, username, password }) => ({ baseUrl, username, password }),
+      storage: createJSONStorage(() => connectionStorage()),
+      partialize: ({ baseUrl, username, password, allowInsecureHttp }) => ({
+        baseUrl,
+        username,
+        password,
+        allowInsecureHttp,
+      }),
     },
   ),
 )

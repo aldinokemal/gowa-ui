@@ -88,10 +88,48 @@ describe('toCurl', () => {
       },
     }
     const command = toCurl(request, base)
-    expect(command).toContain("-F 'phone=628123@s.whatsapp.net'")
-    expect(command).toContain("-F 'image=@photo.jpg'")
-    expect(command).toContain("-F 'compress=true'")
+    expect(command).toContain("--form-string 'phone=628123@s.whatsapp.net'")
+    expect(command).toContain(`-F 'image=@"photo.jpg"'`)
+    expect(command).toContain("--form-string 'compress=true'")
     expect(command).not.toContain('Content-Type: application/json')
+  })
+
+  it('sends scalar multipart values literally so a leading < is not a file read', () => {
+    const request: ApiRequest = {
+      method: 'POST',
+      path: '/send/image',
+      form: { caption: '<private.txt', phone: '@secret.txt' },
+    }
+    const command = toCurl(request, base)
+    expect(command).toContain("--form-string 'caption=<private.txt'")
+    expect(command).toContain("--form-string 'phone=@secret.txt'")
+    expect(command).not.toContain("-F 'caption=")
+    expect(command).not.toContain("-F 'phone=")
+  })
+
+  it('quotes file names that curl would otherwise treat as multipart syntax', () => {
+    const request: ApiRequest = {
+      method: 'POST',
+      path: '/send/file',
+      form: {
+        file: new File(['x'], 'a,b;c".txt'),
+        note: new File(['y'], "photo's.jpg"),
+      },
+    }
+    const command = toCurl(request, base)
+    expect(command).toContain(`-F 'file=@"a,b;c\\".txt"'`)
+    expect(command).toContain(`-F 'note=@"photo'\\''s.jpg"'`)
+  })
+
+  it('keeps a line break in a file name so the copied command opens that file', () => {
+    const request: ApiRequest = {
+      method: 'POST',
+      path: '/send/file',
+      form: { file: new File(['x'], 'a\r\nb.txt') },
+    }
+    const command = toCurl(request, base)
+    expect(command).toContain('file=@"a\r\nb.txt"')
+    expect(command).not.toContain(String.raw`file=@"a\r\nb.txt"`)
   })
 
   it('repeats an array field once per item, matching what is sent', () => {
@@ -101,8 +139,8 @@ describe('toCurl', () => {
       form: { phone: '628123@s.whatsapp.net', weekdays: [1, 3] },
     }
     const command = toCurl(request, base)
-    expect(command).toContain("-F 'weekdays=1'")
-    expect(command).toContain("-F 'weekdays=3'")
+    expect(command).toContain("--form-string 'weekdays=1'")
+    expect(command).toContain("--form-string 'weekdays=3'")
     expect(command).not.toContain('weekdays=1,3')
   })
 

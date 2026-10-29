@@ -27,7 +27,11 @@ describe('device-scoped chat query caching', () => {
     })
     const page = (deviceId: string, offset: number, name: string) =>
       client.fetchQuery({
-        queryKey: chatListQueryKey(deviceId, { search: '', hasMedia: false, offset }),
+        queryKey: chatListQueryKey(
+          deviceId,
+          { search: '', hasMedia: false, offset },
+          'connection-a',
+        ),
         queryFn: async () => [{ name }],
       })
 
@@ -45,8 +49,8 @@ describe('device-scoped chat query caching', () => {
     const filters = { search: '', mediaOnly: false, offset: 0 }
 
     const result = await fetchForTwoDevices(
-      chatMessagesQueryKey('device-a', '628123@s.whatsapp.net', filters),
-      chatMessagesQueryKey('device-b', '628123@s.whatsapp.net', filters),
+      chatMessagesQueryKey('device-a', '628123@s.whatsapp.net', filters, 'connection-a'),
+      chatMessagesQueryKey('device-b', '628123@s.whatsapp.net', filters, 'connection-a'),
     )
 
     expect(result).toBe('device-b')
@@ -54,8 +58,18 @@ describe('device-scoped chat query caching', () => {
 
   it('does not reuse downloaded media from another device', async () => {
     const result = await fetchForTwoDevices(
-      messageMediaQueryKey('device-a', 'message-1', '628123@s.whatsapp.net'),
-      messageMediaQueryKey('device-b', 'message-1', '628123@s.whatsapp.net'),
+      messageMediaQueryKey('device-a', 'message-1', '628123@s.whatsapp.net', 'connection-a'),
+      messageMediaQueryKey('device-b', 'message-1', '628123@s.whatsapp.net', 'connection-a'),
+    )
+
+    expect(result).toBe('device-b')
+  })
+
+  it('does not reuse chats cached for the same device on another connection', async () => {
+    const filters = { search: '', hasMedia: false, offset: 0 }
+    const result = await fetchForTwoDevices(
+      chatListQueryKey('device-a', filters, 'connection-a'),
+      chatListQueryKey('device-a', filters, 'connection-b'),
     )
 
     expect(result).toBe('device-b')

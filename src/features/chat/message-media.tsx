@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { trackedQueryFn } from '@/lib/private-query'
 import { Download, Loader2 } from 'lucide-react'
 import { downloadMedia } from '@/api/message'
 import { Button } from '@/components/ui/button'
@@ -15,12 +16,15 @@ import type { MessageInfo } from '@/api/chat'
 export function MessageMedia({ message, deviceId }: { message: MessageInfo; deviceId: string }) {
   const [open, setOpen] = useState(false)
   const baseUrl = useConnection((state) => state.baseUrl)
+  const connectionId = useConnection((state) => state.connectionId)
   const { data: info } = useAppInfo()
 
   const query = useQuery({
-    queryKey: messageMediaQueryKey(deviceId, message.id, message.chat_jid),
-    queryFn: () => downloadMedia(message.id, message.chat_jid, deviceId),
-    enabled: open,
+    queryKey: messageMediaQueryKey(deviceId, message.id, message.chat_jid, connectionId),
+    queryFn: trackedQueryFn(connectionId, () =>
+      downloadMedia(message.id, message.chat_jid, deviceId),
+    ),
+    enabled: open && connectionId !== null,
     staleTime: Infinity,
     retry: false,
   })

@@ -6,13 +6,14 @@ import type { AppInfo } from '@/api/types'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { ScheduleFields } from '@/features/send/schedule-fields'
 import { atTime, rezone } from '@/features/send/use-schedule-draft'
+import { scopedQueryKey } from '@/lib/private-query'
 
 const noop = () => {}
 
 /** Renders with `/app/info` already cached, the way the dashboard sees it once connected. */
 function render(node: ReactNode, info: Partial<AppInfo> = { scheduled_sends: true }) {
   const client = new QueryClient()
-  client.setQueryData(['app-info'], info)
+  client.setQueryData(scopedQueryKey(['app-info'], null), info)
   return renderToStaticMarkup(<QueryClientProvider client={client}>{node}</QueryClientProvider>)
 }
 

@@ -1,6 +1,6 @@
 import { AxiosError, type AxiosResponse } from 'axios'
 import { describe, expect, it } from 'vitest'
-import { isApiError, toApiError } from './api-error'
+import { isApiError, toApiError, TransportGuardError } from './api-error'
 
 function axiosErrorWithResponse(status: number, data: unknown): AxiosError {
   return new AxiosError('Request failed', 'ERR_BAD_REQUEST', undefined, undefined, {
@@ -37,5 +37,19 @@ describe('toApiError', () => {
     expect(toApiError(passthrough)).toBe(passthrough)
     expect(isApiError(toApiError(new Error('boom')))).toBe(true)
     expect(toApiError(new Error('boom')).message).toBe('boom')
+  })
+
+  it('preserves transport guard codes', () => {
+    const error = toApiError(
+      new TransportGuardError(
+        'INSECURE_TRANSPORT',
+        'Refusing to send credentials over insecure HTTP',
+      ),
+    )
+    expect(error).toEqual({
+      status: 0,
+      code: 'INSECURE_TRANSPORT',
+      message: 'Refusing to send credentials over insecure HTTP',
+    })
   })
 })

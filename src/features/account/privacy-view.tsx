@@ -1,12 +1,12 @@
-import { useQuery } from '@tanstack/react-query'
 import { getPrivacy } from '@/api/user'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useSelectedDevice } from '@/hooks/use-device-guard'
 import { toApiError } from '@/lib/api-error'
+import { usePrivateQuery } from '@/lib/private-query'
 
 export function PrivacyView() {
   const device = useSelectedDevice()
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, error } = usePrivateQuery({
     queryKey: ['privacy', device],
     queryFn: getPrivacy,
     enabled: !!device,

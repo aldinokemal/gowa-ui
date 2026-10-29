@@ -1,5 +1,5 @@
 import { useState, type ComponentType } from 'react'
-import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query'
+import { keepPreviousData, useQueryClient } from '@tanstack/react-query'
 import {
   CalendarClock,
   ChevronLeft,
@@ -45,6 +45,7 @@ import { DeviceGuard, useSelectedDevice } from '@/hooks/use-device-guard'
 import { useActionMutation } from '@/hooks/use-action-mutation'
 import { toApiError } from '@/lib/api-error'
 import { formatDate } from '@/lib/format'
+import { usePrivateQuery } from '@/lib/private-query'
 
 const PAGE_SIZE = 25
 
@@ -199,7 +200,7 @@ function ScheduleTable({ device }: { device: string }) {
   const [search, setSearch] = useState('')
   const [messageType, setMessageType] = useState('all')
   const [offset, setOffset] = useState(0)
-  const query = useQuery({
+  const query = usePrivateQuery({
     queryKey: ['schedules', device, status, search, messageType, offset],
     queryFn: () =>
       listSchedules({

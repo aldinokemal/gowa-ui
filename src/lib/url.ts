@@ -1,8 +1,57 @@
 export function normalizeBaseUrl(input: string): string {
   let url = input.trim()
   if (!url) return ''
-  if (!/^https?:\/\//i.test(url)) url = `http://${url}`
+  // Scheme-less addresses are remote until proven otherwise, so they use HTTPS.
+  if (!/^https?:\/\//i.test(url)) url = `https://${url}`
   return url.replace(/\/+$/, '')
+}
+
+/** True for names that resolve to the local machine rather than a network host. */
+export function isLoopbackHostname(hostname: string): boolean {
+  const host = hostname
+    .toLowerCase()
+    .replace(/^\[|\]$/g, '')
+    .replace(/\.$/, '')
+  if (host === 'localhost' || host.endsWith('.localhost')) return true
+  if (host === '::1' || host === '0:0:0:0:0:0:0:1') return true
+  if (!host.startsWith('127.')) return false
+  const parts = host.split('.')
+  return parts.length >= 2 && parts.every((part) => /^\d{1,3}$/.test(part) && Number(part) <= 255)
+}
+
+/** True when the URL is HTTP or WS to a host other than loopback. */
+export function isRemoteInsecureHttp(baseUrl: string): boolean {
+  if (!baseUrl) return false
+  try {
+    const url = new URL(baseUrl)
+    if (url.protocol !== 'http:' && url.protocol !== 'ws:') return false
+    return !isLoopbackHostname(url.hostname)
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Credentials must not ride a remote cleartext connection unless the operator
+ * opts in. Loopback HTTP stays allowed so a local gowa server can be used.
+ */
+export function refusesInsecureCredentials(
+  baseUrl: string,
+  hasCredentials: boolean,
+  allowInsecureHttp: boolean,
+): boolean {
+  if (allowInsecureHttp) return false
+  let url: URL
+  try {
+    url = new URL(baseUrl)
+  } catch {
+    return hasCredentials
+  }
+  const embedded = Boolean(url.username || url.password)
+  if (!hasCredentials && !embedded) return false
+  if (url.protocol === 'https:' || url.protocol === 'wss:') return false
+  if (url.protocol !== 'http:' && url.protocol !== 'ws:') return true
+  return !isLoopbackHostname(url.hostname)
 }
 
 export function joinUrl(base: string, path: string): string {

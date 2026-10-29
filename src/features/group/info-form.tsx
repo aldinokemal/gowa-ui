@@ -1,4 +1,3 @@
-import { useQuery } from '@tanstack/react-query'
 import {
   ChevronRight,
   DoorOpen,
@@ -13,6 +12,7 @@ import { IdText } from '@/components/shared/id-text'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { toApiError } from '@/lib/api-error'
+import { usePrivateQuery } from '@/lib/private-query'
 import { formatDate, formatDay, isZeroTime } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
@@ -112,7 +112,7 @@ function flagBadges(info: GroupInfo) {
 }
 
 export function GroupOverview({ groupJid }: { groupJid: string }) {
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, error } = usePrivateQuery({
     queryKey: ['group-info', groupJid],
     queryFn: () => getGroupInfo({ group_id: groupJid }),
     enabled: !!groupJid,
