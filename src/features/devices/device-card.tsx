@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   CircleUserRound,
+  Headset,
   KeyRound,
   MoreVertical,
   QrCode,
@@ -32,8 +33,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { DeviceChatwootDialog } from '@/features/devices/chatwoot-dialog'
 import { StateBadge } from '@/features/devices/state-badge'
 import { DeviceWebhookDialog } from '@/features/devices/webhook-dialog'
+import { useAppInfo } from '@/hooks/use-app-info'
 import { useDeviceAvatar } from '@/hooks/use-device-avatar'
 import { toApiError } from '@/lib/api-error'
 import { formatDate } from '@/lib/format'
@@ -55,6 +58,9 @@ export function DeviceCard({
   const selectDevice = useDeviceStore((state) => state.selectDevice)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [webhookOpen, setWebhookOpen] = useState(false)
+  const [chatwootOpen, setChatwootOpen] = useState(false)
+  // The server registers the Chatwoot config routes only when CHATWOOT_ENABLED is on.
+  const chatwootEnabled = useAppInfo().data?.chatwoot_enabled ?? false
   const selected = selectedDeviceId === device.id
   const avatar = useDeviceAvatar(device)
 
@@ -151,6 +157,11 @@ export function DeviceCard({
               <DropdownMenuItem onClick={() => setWebhookOpen(true)}>
                 <Webhook className="size-4" /> Webhook
               </DropdownMenuItem>
+              {chatwootEnabled && (
+                <DropdownMenuItem onClick={() => setChatwootOpen(true)}>
+                  <Headset className="size-4" /> Chatwoot
+                </DropdownMenuItem>
+              )}
               <DropdownMenuSeparator />
               <DropdownMenuItem variant="destructive" onClick={() => setConfirmDelete(true)}>
                 <Trash2 className="size-4" /> Delete
@@ -161,6 +172,9 @@ export function DeviceCard({
       </CardFooter>
 
       <DeviceWebhookDialog device={device} open={webhookOpen} onOpenChange={setWebhookOpen} />
+      {chatwootEnabled && (
+        <DeviceChatwootDialog device={device} open={chatwootOpen} onOpenChange={setChatwootOpen} />
+      )}
 
       <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
         <AlertDialogContent>

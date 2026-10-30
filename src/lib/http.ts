@@ -1,4 +1,4 @@
-import axios, { type AxiosResponse, type InternalAxiosRequestConfig } from 'axios'
+import axios, { AxiosError, type AxiosResponse, type InternalAxiosRequestConfig } from 'axios'
 import type { ResponseData } from '@/api/types'
 import { basicAuthHeader, toApiError, TransportGuardError } from '@/lib/api-error'
 import { hasBasicCredentials, useConnection } from '@/stores/connection'
@@ -51,8 +51,16 @@ http.interceptors.response.use(
     }
     return response
   },
-  (error: unknown) => {
+  async (error: unknown) => {
     if (error instanceof TransportGuardError) return Promise.reject(error)
+    // File downloads ask for a Blob, so gowa's JSON error envelope arrives as one too.
+    if (error instanceof AxiosError && error.response?.data instanceof Blob) {
+      try {
+        error.response.data = JSON.parse(await error.response.data.text())
+      } catch {
+        // Not JSON (e.g. Basic Auth's plain "Unauthorized"); the status still applies.
+      }
+    }
     const apiError = toApiError(error)
     // gowa also answers 401 AUTHENTICATION_ERROR when the selected device is not
     // connected or logged in; that says nothing about the dashboard's credentials.

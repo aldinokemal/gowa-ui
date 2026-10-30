@@ -2,6 +2,7 @@ import { useState, type FormEvent, type ReactNode } from 'react'
 import {
   deleteRequest,
   forwardRequest,
+  playedRequest,
   reactRequest,
   readRequest,
   revokeRequest,
@@ -143,6 +144,17 @@ export function ReadForm({ messageId }: MessageActionProps) {
       submitLabel="Mark as read"
       successMessage="Marked as read"
       request={(id, phone) => readRequest(id, { phone })}
+    />
+  )
+}
+
+export function PlayedForm({ messageId }: MessageActionProps) {
+  return (
+    <MessageActionForm
+      messageId={messageId}
+      submitLabel="Mark as played"
+      successMessage="Played receipt sent"
+      request={(id, phone) => playedRequest(id, { phone })}
     />
   )
 }

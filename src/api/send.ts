@@ -178,6 +178,7 @@ export function stickerRequest(p: MediaPayload): ApiRequest {
         phone: p.phone,
         sticker: p.file,
         sticker_url: p.fileUrl,
+        reply_message_id: p.reply_message_id,
         is_forwarded: p.is_forwarded,
       },
       p,
@@ -268,6 +269,39 @@ export function pollRequest(payload: PollPayload): ApiRequest {
 
 export function sendPoll(payload: PollPayload): Promise<SendResult> {
   return exec(pollRequest(payload))
+}
+
+export type InteractiveButtonName =
+  'quick_reply' | 'cta_url' | 'cta_copy' | 'cta_call' | 'single_select' | 'send_location'
+
+export interface InteractiveButton {
+  name: InteractiveButtonName
+  params: Record<string, unknown>
+}
+
+export interface InteractiveCard {
+  image_base64?: string
+  title?: string
+  body: string
+  footer?: string
+  buttons: InteractiveButton[]
+}
+
+/** Experimental native-flow message; the backend sends it immediately, never scheduled. */
+export interface InteractivePayload {
+  phone: string
+  body: string
+  footer?: string
+  buttons?: InteractiveButton[]
+  cards?: InteractiveCard[]
+}
+
+export function interactiveRequest(payload: InteractivePayload): ApiRequest {
+  return { method: 'POST', path: '/send/interactive', json: clean(payload) }
+}
+
+export function sendInteractive(payload: InteractivePayload): Promise<SendResult> {
+  return exec(interactiveRequest(payload))
 }
 
 export interface PresencePayload {

@@ -1,6 +1,6 @@
 export function formatBytes(bytes: number): string {
   if (!Number.isFinite(bytes) || bytes <= 0) return '0 B'
-  const units = ['B', 'kB', 'MB', 'GB']
+  const units = ['B', 'kB', 'MB', 'GB', 'TB']
   const power = Math.min(Math.floor(Math.log10(bytes) / 3), units.length - 1)
   const value = bytes / 1000 ** power
   return `${value % 1 === 0 ? value : value.toFixed(1)} ${units[power]}`
@@ -33,4 +33,14 @@ const dayFormat = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' })
 export function formatDay(iso: string): string {
   const date = new Date(iso)
   return Number.isNaN(date.getTime()) ? iso : dayFormat.format(date)
+}
+
+/** Compact duration such as "3d 4h", "2h 5m" or "12m". */
+export function formatDuration(totalSeconds: number): string {
+  const days = Math.floor(totalSeconds / 86_400)
+  const hours = Math.floor((totalSeconds % 86_400) / 3_600)
+  const minutes = Math.floor((totalSeconds % 3_600) / 60)
+  if (days) return `${days}d ${hours}h`
+  if (hours) return `${hours}h ${minutes}m`
+  return `${minutes}m`
 }

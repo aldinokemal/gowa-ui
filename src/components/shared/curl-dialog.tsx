@@ -37,7 +37,8 @@ function CurlDialog({
   const options = useCurlOptions()
   const [copied, setCopied] = useState(false)
 
-  const masked = toCurl(request, { ...options, revealSecrets: false })
+  // Only render while open: bodies can carry large base64 images.
+  const masked = open ? toCurl(request, { ...options, revealSecrets: false }) : ''
   const secret = Boolean(options.username && options.password)
 
   const copy = async () => {

@@ -137,6 +137,14 @@ export function listParticipants(payload: { group_id: string }): Promise<GroupPa
   return results(http.get('/group/participants', { params: payload }))
 }
 
+export async function exportParticipantsCsv(group_id: string): Promise<Blob> {
+  const response = await http.get<Blob>('/group/participants/export', {
+    params: { group_id },
+    responseType: 'blob',
+  })
+  return response.data
+}
+
 export function addParticipants(payload: ParticipantsPayload): Promise<ParticipantStatus[]> {
   return results(http.post('/group/participants', payload))
 }

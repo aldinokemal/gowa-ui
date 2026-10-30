@@ -14,13 +14,14 @@ Pick one:
 
 1. **Served by gowa** — gowa downloads the latest `gowa-ui.html` release and serves it at `/`. (Planned; lands with the parity cutover.)
 2. **Host it yourself** — put the built file on any static host (GitHub Pages works). On first load, enter your server URL and basic-auth credentials; they're saved in `localStorage`.
-3. **Open the file directly** — download `gowa-ui.html` from a release and open it in a browser. Works, but some browser APIs need an HTTP origin, so hosting is better for daily use.
+3. **Open the file directly** — download `gowa-ui.html` from a release and open it in a browser. Read-only: gowa never trusts the `null` origin a `file://` page sends, so sending, settings changes and the live WebSocket are refused. Host it for anything else.
 
 ## What your gowa server needs
 
 The dashboard talks to gowa from the browser, so the server needs a few cross-origin features:
 
 - **CORS** — allow the `Authorization` and `X-Device-Id` headers.
+- **Trusted origin** — when the dashboard is hosted on a different origin than gowa, list that origin in `APP_TRUSTED_ORIGINS` (or a specific `APP_CORS_ALLOWED_ORIGINS` entry; a `*` wildcard doesn't count). Without it, gowa rejects every change and the `/ws` connection with `CROSS_SITE_REQUEST_BLOCKED`.
 - **REST auth** — `Authorization: Basic <base64(user:pass)>` header.
 - **Device selection** — `X-Device-Id` header (URL-encoded) or `?device_id=` query.
 - **WebSocket auth** — `/ws?device_id=<id>&authorization=<base64(user:pass)>`. Browsers can't set headers on WebSocket connections, so the credential goes in the query string — use TLS.
@@ -83,4 +84,6 @@ Every `v*` tag publishes exactly one asset named **`gowa-ui.html`** (plus a `.sh
 - [x] **v1.1.0** — per-device webhook editor (URL, secret, events, TLS verify) on the device card
 - [x] **v1.1.1** — group participants viewer: table with admin badges + inline add/promote/demote/remove
 
-Still to do: Chatwoot config module, full WebAuthn passkey flow.
+- [x] **gowa v9.8 parity** — experimental interactive messages (buttons, lists, location requests, image carousels), channel directory/lookup/follow with live counters, presence subscribe, server health from `/app/metrics`, per-device Chatwoot config (incl. webhook secret), reply quotes and on-demand history in chats, sticker replies, audio played receipts, participants CSV export, temporary-ban / reach-out timelock alerts
+
+Still to do: full WebAuthn passkey flow.
