@@ -54,7 +54,9 @@ http.interceptors.response.use(
   (error: unknown) => {
     if (error instanceof TransportGuardError) return Promise.reject(error)
     const apiError = toApiError(error)
-    if (apiError.status === 401) {
+    // gowa also answers 401 AUTHENTICATION_ERROR when the selected device is not
+    // connected or logged in; that says nothing about the dashboard's credentials.
+    if (apiError.status === 401 && apiError.code !== 'AUTHENTICATION_ERROR') {
       useConnection.getState().markUnauthorized()
     }
     return Promise.reject(apiError)

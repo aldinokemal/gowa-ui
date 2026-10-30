@@ -1,4 +1,9 @@
-import type { AxiosAdapter, AxiosResponse, InternalAxiosRequestConfig } from 'axios'
+import {
+  AxiosError,
+  type AxiosAdapter,
+  type AxiosResponse,
+  type InternalAxiosRequestConfig,
+} from 'axios'
 import { afterEach, describe, expect, it } from 'vitest'
 import { listDevices } from '@/api/devices'
 import { TransportGuardError } from '@/lib/api-error'
@@ -98,5 +103,56 @@ describe('credential transport on ordinary requests', () => {
     })
 
     await expect(listDevices()).rejects.toMatchObject({ code: 'STALE_CONNECTION' })
+  })
+})
+
+describe('401 responses', () => {
+  const originalAdapter = http.defaults.adapter
+
+  function rejectWith401(data: unknown): AxiosAdapter {
+    return async (config) => {
+      const response = { data, status: 401, statusText: 'Unauthorized', headers: {}, config }
+      throw new AxiosError('Request failed', 'ERR_BAD_REQUEST', config, null, response)
+    }
+  }
+
+  afterEach(() => {
+    http.defaults.adapter = originalAdapter
+    useConnection.setState({
+      baseUrl: null,
+      username: null,
+      password: null,
+      connectionId: null,
+      status: 'booting',
+    })
+  })
+
+  function connect() {
+    useConnection.setState({
+      status: 'connected',
+      baseUrl: 'https://a.example',
+      username: 'user',
+      password: 'secret',
+      connectionId: 'conn',
+    })
+  }
+
+  it('signs out when the server rejects the credentials', async () => {
+    http.defaults.adapter = rejectWith401('Unauthorized')
+    connect()
+
+    await expect(listDevices()).rejects.toMatchObject({ status: 401 })
+    expect(useConnection.getState().status).toBe('unauthorized')
+  })
+
+  it('stays connected when the selected device is not connected', async () => {
+    http.defaults.adapter = rejectWith401({
+      code: 'AUTHENTICATION_ERROR',
+      message: 'you are not connect to services server, please reconnect',
+    })
+    connect()
+
+    await expect(listDevices()).rejects.toMatchObject({ code: 'AUTHENTICATION_ERROR' })
+    expect(useConnection.getState().status).toBe('connected')
   })
 })
