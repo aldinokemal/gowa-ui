@@ -20,6 +20,10 @@ import { ScheduleFields } from '@/features/send/schedule-fields'
 import { useScheduleDraft } from '@/features/send/use-schedule-draft'
 
 const PAGE_SIZE = 30
+// The phone answers a history request later, through history sync. Poll for a
+// while afterwards so the older messages show up without a reload.
+const HISTORY_POLL_MS = 3_000
+const HISTORY_POLL_WINDOW_MS = 30_000
 
 function sortMessagesChronologically(messages: MessageInfo[]): MessageInfo[] {
   return [...messages].sort((left, right) => {
@@ -101,6 +105,7 @@ export function MessageView({ chat, deviceId }: { chat: ChatInfo; deviceId: stri
   const [mediaOnly, setMediaOnly] = useState(false)
   const [offset, setOffset] = useState(0)
   const [draft, setDraft] = useState('')
+  const [historyPollUntil, setHistoryPollUntil] = useState(0)
   const { draft: scheduleDraft, patch: patchSchedule, reset: resetSchedule } = useScheduleDraft()
 
   const filters = { search, mediaOnly, offset }
@@ -119,6 +124,7 @@ export function MessageView({ chat, deviceId }: { chat: ChatInfo; deviceId: stri
       ),
     ),
     enabled: connectionId !== null,
+    refetchInterval: () => (Date.now() < historyPollUntil ? HISTORY_POLL_MS : false),
     placeholderData:
       connectionPlaceholder<Awaited<ReturnType<typeof getChatMessages>>>(connectionId),
   })
@@ -163,6 +169,7 @@ export function MessageView({ chat, deviceId }: { chat: ChatInfo; deviceId: stri
 
   const historyMutation = useActionMutation(() => requestChatHistory(chat.jid, PAGE_SIZE), {
     successMessage: 'Asked the phone for older messages; they appear once it answers',
+    onSuccess: () => setHistoryPollUntil(Date.now() + HISTORY_POLL_WINDOW_MS),
   })
 
   const onSend = (event: FormEvent) => {

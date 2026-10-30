@@ -113,6 +113,8 @@ export function ChannelDirectory() {
             <Input
               id="directory-countries"
               placeholder="ID, BR"
+              pattern="\s*[A-Za-z]{2}([\s,]+[A-Za-z]{2})*[\s,]*"
+              title="Two-letter country codes separated by commas, e.g. ID, BR"
               value={countries}
               onChange={(event) => setCountries(event.target.value)}
               disabled={searching}

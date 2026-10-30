@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useState, type Dispatch, type FormEvent, type SetStateAction } from 'react'
 import { Plus, X } from 'lucide-react'
 import { toast } from 'sonner'
 import {
@@ -281,16 +281,32 @@ function CardsEditor({
   onChange,
 }: {
   cards: CardDraft[]
-  onChange: (cards: CardDraft[]) => void
+  onChange: Dispatch<SetStateAction<CardDraft[]>>
 }) {
   const set = (index: number, patch: Partial<CardDraft>) => onChange(update(cards, index, patch))
 
-  const pickImage = async (index: number, file?: File) => {
-    if (file && file.size > MAX_CARD_IMAGE_BYTES) {
-      toast.error('Card images must be 2 MB or smaller')
-      return
+  // A read finishes later, so it lands on the latest cards by key: edits made
+  // meanwhile survive, and a removed card or a newer pick ignores it.
+  const pickImage = async (key: number, input: HTMLInputElement) => {
+    const file = input.files?.[0]
+    const setImage = (image?: string) =>
+      onChange((prev) => prev.map((card) => (card.key === key ? { ...card, image } : card)))
+    const reject = (message: string) => {
+      input.value = ''
+      setImage(undefined)
+      toast.error(message)
     }
-    set(index, { image: file ? await readBase64(file) : undefined })
+    if (!file) return setImage(undefined)
+    if (file.type !== 'image/jpeg' && file.type !== 'image/png') {
+      return reject('Card images must be JPEG or PNG')
+    }
+    if (file.size > MAX_CARD_IMAGE_BYTES) return reject('Card images must be 2 MB or smaller')
+    try {
+      const image = await readBase64(file)
+      if (input.files?.[0] === file) setImage(image)
+    } catch {
+      reject("Couldn't read that image")
+    }
   }
 
   return (
@@ -316,12 +332,13 @@ function CardsEditor({
               id={`card-${card.key}-image`}
               type="file"
               accept="image/jpeg,image/png"
-              onChange={(event) => void pickImage(index, event.target.files?.[0])}
+              onChange={(event) => void pickImage(card.key, event.target)}
             />
           </div>
           <Input
             aria-label="Card title"
             placeholder="Title (optional)"
+            maxLength={256}
             value={card.title}
             onChange={(event) => set(index, { title: event.target.value })}
           />
@@ -329,6 +346,7 @@ function CardsEditor({
             aria-label="Card body"
             placeholder="Body"
             rows={2}
+            maxLength={4096}
             value={card.body}
             onChange={(event) => set(index, { body: event.target.value })}
             required
@@ -336,6 +354,7 @@ function CardsEditor({
           <Input
             aria-label="Card footer"
             placeholder="Footer (optional)"
+            maxLength={256}
             value={card.footer}
             onChange={(event) => set(index, { footer: event.target.value })}
           />

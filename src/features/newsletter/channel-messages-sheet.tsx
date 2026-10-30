@@ -1,11 +1,17 @@
 import { useState } from 'react'
-import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
+import {
+  useInfiniteQuery,
+  useQuery,
+  useQueryClient,
+  type InfiniteData,
+} from '@tanstack/react-query'
 import { Download, Eye, Forward, Loader2, RefreshCw } from 'lucide-react'
 import {
   downloadNewsletterMedia,
   getNewsletterMessageUpdates,
   getNewsletterMessages,
   type NewsletterMessage,
+  type NewsletterMessagesResponse,
   type NewsletterMetadata,
 } from '@/api/newsletter'
 import { IdText } from '@/components/shared/id-text'
@@ -59,10 +65,11 @@ export function ChannelMessagesSheet({
 function ChannelMessages({ newsletterId }: { newsletterId: string }) {
   const device = useSelectedDevice()
   const connectionId = useConnection((state) => state.connectionId)
-  const [counters, setCounters] = useState<Record<number, NewsletterMessage>>({})
+  const queryClient = useQueryClient()
+  const queryKey = ['newsletter-messages', device, newsletterId, connectionId]
 
   const query = useInfiniteQuery({
-    queryKey: ['newsletter-messages', device, newsletterId, connectionId],
+    queryKey,
     queryFn: ({ pageParam }) =>
       trackedQueryFn(connectionId, () =>
         getNewsletterMessages({ newsletter_id: newsletterId, count: PAGE_SIZE, before: pageParam }),
@@ -81,20 +88,42 @@ function ChannelMessages({ newsletterId }: { newsletterId: string }) {
 
   const refresh = useActionMutation(
     (_: void) => {
-      const oldest = Math.min(...messages.map((message) => message.server_id))
+      // message-updates only takes a lower bound and returns at most 100, so aim it
+      // at the newest 100 posts rather than paging blindly.
+      const newest = messages.slice(0, 100)
       return getNewsletterMessageUpdates({
         newsletter_id: newsletterId,
-        after: Math.max(1, oldest - 1),
-        count: Math.min(100, messages.length),
+        after: Math.max(1, newest[newest.length - 1].server_id - 1),
+        count: newest.length,
       })
     },
     {
       successMessage: (result) => `Counters refreshed for ${result.data.length} messages`,
-      onSuccess: (result) =>
-        setCounters((previous) => ({
-          ...previous,
-          ...Object.fromEntries(result.data.map((message) => [message.server_id, message])),
-        })),
+      // Written into the cached pages, so a later refetch replaces them with newer counts.
+      onSuccess: (result) => {
+        const updates = new Map(result.data.map((message) => [message.server_id, message]))
+        queryClient.setQueryData<InfiniteData<NewsletterMessagesResponse>>(
+          queryKey,
+          (data) =>
+            data && {
+              ...data,
+              pages: data.pages.map((page) => ({
+                ...page,
+                data: page.data.map((message) => {
+                  const update = updates.get(message.server_id)
+                  return update
+                    ? {
+                        ...message,
+                        views_count: update.views_count,
+                        forwards_count: update.forwards_count,
+                        reaction_counts: update.reaction_counts,
+                      }
+                    : message
+                }),
+              })),
+            },
+        )
+      },
     },
   )
 
@@ -125,12 +154,7 @@ function ChannelMessages({ newsletterId }: { newsletterId: string }) {
 
       <ul className="flex flex-col divide-y">
         {messages.map((message) => (
-          <MessageRow
-            key={message.server_id}
-            newsletterId={newsletterId}
-            message={message}
-            counters={counters[message.server_id] ?? message}
-          />
+          <MessageRow key={message.server_id} newsletterId={newsletterId} message={message} />
         ))}
       </ul>
 
@@ -153,13 +177,11 @@ function ChannelMessages({ newsletterId }: { newsletterId: string }) {
 function MessageRow({
   newsletterId,
   message,
-  counters,
 }: {
   newsletterId: string
   message: NewsletterMessage
-  counters: NewsletterMessage
 }) {
-  const reactions = Object.entries(counters.reaction_counts ?? {})
+  const reactions = Object.entries(message.reaction_counts ?? {})
 
   return (
     <li className="flex flex-col gap-1.5 py-3">
@@ -173,15 +195,15 @@ function MessageRow({
         <NewsletterMedia newsletterId={newsletterId} serverId={message.server_id} />
       )}
       <div className="text-muted-foreground flex flex-wrap items-center gap-3 text-xs">
-        {counters.views_count > 0 && (
+        {message.views_count > 0 && (
           <span className="flex items-center gap-1" title="Views (reported to admins only)">
             <Eye className="size-3.5" />
-            {counters.views_count}
+            {message.views_count}
           </span>
         )}
         <span className="flex items-center gap-1" title="Forwards">
           <Forward className="size-3.5" />
-          {counters.forwards_count}
+          {message.forwards_count}
         </span>
         {reactions.map(([emoji, count]) => (
           <span key={emoji}>
@@ -221,9 +243,19 @@ function NewsletterMedia({ newsletterId, serverId }: { newsletterId: string; ser
 
   if (query.isError || !query.data) {
     return (
-      <p className="text-destructive text-xs">
-        {query.error ? toApiError(query.error).message : 'Download failed'}
-      </p>
+      <div className="flex items-center gap-2">
+        <p className="text-destructive text-xs">
+          {query.error ? toApiError(query.error).message : 'Download failed'}
+        </p>
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={query.isFetching}
+          onClick={() => void query.refetch()}
+        >
+          Retry
+        </Button>
+      </div>
     )
   }
 

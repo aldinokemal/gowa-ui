@@ -4,6 +4,7 @@ import { appMetrics } from '@/api/app'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
+import { toApiError } from '@/lib/api-error'
 import { formatBytes, formatDuration } from '@/lib/format'
 import { usePrivateQuery } from '@/lib/private-query'
 import { cn } from '@/lib/utils'
@@ -52,19 +53,24 @@ export function MetricsCard() {
         {isLoading && <Skeleton className="h-32" />}
         {error && (
           <p className="text-muted-foreground">
-            This server does not expose /app/metrics yet (needs a newer gowa release).
+            {toApiError(error).status === 404
+              ? 'This server does not expose /app/metrics yet (needs a newer gowa release).'
+              : `Couldn't load metrics: ${toApiError(error).message}`}
           </p>
         )}
-        {data && memory && fs && (
+        {/* A failed poll keeps the last data; hide it rather than show stale numbers. */}
+        {!error && data && memory && fs && (
           <>
             <Row label="Uptime">{formatDuration(data.system.uptime_seconds)}</Row>
             <Row label="Devices (connected / logged in / total)">
               {data.devices.connected} / {data.devices.logged_in} / {data.devices.total}
             </Row>
             <Row label="Session store">{data.session_store}</Row>
-            <Row label="Memory (process)">
-              {formatBytes(memory.process_rss_bytes ?? memory.runtime_sys_bytes)}
-            </Row>
+            {memory.process_rss_bytes !== null ? (
+              <Row label="Memory (process)">{formatBytes(memory.process_rss_bytes)}</Row>
+            ) : (
+              <Row label="Memory (Go runtime)">{formatBytes(memory.runtime_sys_bytes)}</Row>
+            )}
             {memory.container_bytes !== null && (
               <Row label="Memory (container)">
                 {formatBytes(memory.container_bytes)}
