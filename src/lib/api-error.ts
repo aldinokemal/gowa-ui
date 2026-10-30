@@ -43,8 +43,11 @@ export function toApiError(error: unknown): ApiError {
   // itself, which would satisfy the structural ApiError check.
   if (error instanceof AxiosError) {
     const data = error.response?.data as Partial<ResponseData<unknown>> | undefined
-    const code = data?.code ?? (error.response ? 'HTTP_ERROR' : 'NETWORK_ERROR')
-    const message = data?.message ?? error.message
+    // Bodies come from whatever answered (gowa, a proxy, a Blob download), so only
+    // string fields count as the gowa envelope.
+    const code =
+      typeof data?.code === 'string' ? data.code : error.response ? 'HTTP_ERROR' : 'NETWORK_ERROR'
+    const message = typeof data?.message === 'string' ? data.message : error.message
     return {
       status: error.response?.status ?? 0,
       code,

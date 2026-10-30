@@ -1,5 +1,5 @@
 import { AxiosError, type AxiosResponse } from 'axios'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { isApiError, toApiError, TransportGuardError } from './api-error'
 
 function axiosErrorWithResponse(status: number, data: unknown): AxiosError {
@@ -20,15 +20,37 @@ describe('toApiError', () => {
     expect(error).toEqual({ status: 404, code: 'DEVICE_NOT_FOUND', message: 'device not found' })
   })
 
-  it('says how to trust this origin when the server blocks a cross-site request', () => {
-    const error = toApiError(
-      axiosErrorWithResponse(403, {
+  describe('cross-site block', () => {
+    const blocked = () =>
+      toApiError(
+        axiosErrorWithResponse(403, {
+          code: 'CROSS_SITE_REQUEST_BLOCKED',
+          message: 'browser request origin is not allowed',
+        }),
+      )
+
+    afterEach(() => vi.unstubAllGlobals())
+
+    it('names the dashboard origin to trust', () => {
+      vi.stubGlobal('location', { origin: 'https://ui.example.com' })
+      expect(blocked()).toMatchObject({
         code: 'CROSS_SITE_REQUEST_BLOCKED',
-        message: 'browser request origin is not allowed',
-      }),
-    )
-    expect(error.code).toBe('CROSS_SITE_REQUEST_BLOCKED')
-    expect(error.message).toMatch(/^browser request origin is not allowed — .*APP_TRUSTED_ORIGINS/)
+        message:
+          "browser request origin is not allowed — add https://ui.example.com to the server's APP_TRUSTED_ORIGINS",
+      })
+    })
+
+    it('asks for an http(s) origin when opened from a file', () => {
+      vi.stubGlobal('location', { origin: 'null' })
+      expect(blocked().message).toBe(
+        "browser request origin is not allowed — open this dashboard from an http(s) origin listed in the server's APP_TRUSTED_ORIGINS",
+      )
+    })
+  })
+
+  it('ignores non-string envelope fields', () => {
+    const error = toApiError(axiosErrorWithResponse(500, { code: 7, message: { detail: 'x' } }))
+    expect(error).toEqual({ status: 500, code: 'HTTP_ERROR', message: 'Request failed' })
   })
 
   it('maps a missing response to NETWORK_ERROR', () => {

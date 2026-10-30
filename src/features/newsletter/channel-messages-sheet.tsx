@@ -94,7 +94,8 @@ function ChannelMessages({ newsletterId }: { newsletterId: string }) {
       return getNewsletterMessageUpdates({
         newsletter_id: newsletterId,
         after: Math.max(1, newest[newest.length - 1].server_id - 1),
-        count: newest.length,
+        // The maximum, so posts newer than the loaded ones can't crowd out loaded rows.
+        count: 100,
       })
     },
     {

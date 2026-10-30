@@ -71,6 +71,8 @@ interface CardDraft {
   /** Stable React key: each card owns an uncontrolled file input. */
   key: number
   image?: string
+  /** An image read is in flight; sending now would omit it. */
+  reading?: boolean
   title: string
   body: string
   footer: string
@@ -289,8 +291,9 @@ function CardsEditor({
   // meanwhile survive, and a removed card or a newer pick ignores it.
   const pickImage = async (key: number, input: HTMLInputElement) => {
     const file = input.files?.[0]
-    const setImage = (image?: string) =>
-      onChange((prev) => prev.map((card) => (card.key === key ? { ...card, image } : card)))
+    const patchCard = (patch: Partial<CardDraft>) =>
+      onChange((prev) => prev.map((card) => (card.key === key ? { ...card, ...patch } : card)))
+    const setImage = (image?: string) => patchCard({ image, reading: false })
     const reject = (message: string) => {
       input.value = ''
       setImage(undefined)
@@ -301,11 +304,12 @@ function CardsEditor({
       return reject('Card images must be JPEG or PNG')
     }
     if (file.size > MAX_CARD_IMAGE_BYTES) return reject('Card images must be 2 MB or smaller')
+    patchCard({ reading: true })
     try {
       const image = await readBase64(file)
       if (input.files?.[0] === file) setImage(image)
     } catch {
-      reject("Couldn't read that image")
+      if (input.files?.[0] === file) reject("Couldn't read that image")
     }
   }
 
@@ -466,7 +470,7 @@ export function SendInteractiveForm() {
       <FormActions
         submitLabel="Send interactive"
         pending={mutation.isPending}
-        disabled={!jid}
+        disabled={!jid || (mode === 'carousel' && cards.some((card) => card.reading))}
         request={interactiveRequest(payload)}
       />
       <ResultPanel result={mutation.data} />

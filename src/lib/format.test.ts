@@ -39,6 +39,7 @@ describe('formatBytes', () => {
   it('scales into MB and GB', () => {
     expect(formatBytes(50_000_000)).toBe('50 MB')
     expect(formatBytes(2_500_000_000)).toBe('2.5 GB')
+    expect(formatBytes(1_000_000_000_000)).toBe('1 TB')
   })
 })
 

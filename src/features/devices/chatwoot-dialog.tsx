@@ -79,7 +79,15 @@ function ChatwootEditor({ device }: { device: RegistryDevice }) {
       </div>
     )
   }
-  return <ChatwootForm device={device} queryKey={queryKey} existing={config.data} />
+  // Remount when a config is created or deleted so the draft starts from what now exists.
+  return (
+    <ChatwootForm
+      key={config.data ? 'existing' : 'new'}
+      device={device}
+      queryKey={queryKey}
+      existing={config.data}
+    />
+  )
 }
 
 function ChatwootForm({
