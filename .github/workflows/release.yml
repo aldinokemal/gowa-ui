@@ -38,8 +38,8 @@ jobs:
 
   pages:
     # Optional: requires Pages to be enabled (Settings → Pages → Source: GitHub Actions).
-    # Non-blocking so releases stay green when Pages is off.
-    if: startsWith(github.ref, 'refs/tags/v')
+    # Skipped on forks so a missing Pages site does not add noise to release runs.
+    if: github.repository == 'aldinokemal/gowa-ui' && startsWith(github.ref, 'refs/tags/v')
     needs: release
     continue-on-error: true
     runs-on: ubuntu-latest
