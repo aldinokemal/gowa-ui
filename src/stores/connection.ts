@@ -3,6 +3,7 @@ import { create } from 'zustand'
 import { createJSONStorage, persist } from 'zustand/middleware'
 import type { ResponseData } from '@/api/types'
 import { basicAuthHeader } from '@/lib/api-error'
+import { createConnectionId } from '@/lib/id'
 import { discardPrivateCache } from '@/lib/query-client'
 import { normalizeBaseUrl, refusesInsecureCredentials, sameOriginBaseUrl } from '@/lib/url'
 
@@ -95,7 +96,7 @@ export const useConnection = create<ConnectionState>()(
         discardPrivateCache()
         set({
           ...next,
-          connectionId: crypto.randomUUID(),
+          connectionId: createConnectionId(),
           status: 'connected',
         })
       }

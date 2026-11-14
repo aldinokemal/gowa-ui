@@ -1,0 +1,101 @@
+name: Sync upstream
+
+on:
+  schedule:
+    - cron: "23 */6 * * *"
+  workflow_dispatch:
+    inputs:
+      force_release:
+        description: Release current main even when upstream has no new release
+        type: boolean
+        default: false
+
+permissions:
+  actions: write
+  contents: write
+
+concurrency:
+  group: sync-upstream
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Merge upstream main
+        run: |
+          git remote add upstream https://github.com/aldinokemal/gowa-ui.git
+          git fetch upstream main --tags
+          if git merge-base --is-ancestor upstream/main HEAD; then
+            echo "Fork already contains upstream/main."
+          else
+            git merge --no-edit upstream/main
+            git push origin HEAD:main
+          fi
+
+      - name: Decide release tag
+        id: release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          FORCE_RELEASE: ${{ inputs.force_release }}
+        run: |
+          upstream_tag=$(curl -fsSL https://api.github.com/repos/aldinokemal/gowa-ui/releases/latest | jq -r '.tag_name // empty')
+          fork_latest=$(gh release view --json tagName -q .tagName 2>/dev/null || true)
+
+          should_release=false
+          if [ "$FORCE_RELEASE" = "true" ]; then
+            should_release=true
+          elif [ -n "$upstream_tag" ]; then
+            case "$fork_latest" in
+              "$upstream_tag"-sonarta.*) ;;
+              *) should_release=true ;;
+            esac
+          fi
+
+          if [ "$should_release" != "true" ]; then
+            echo "Nothing to release (upstream=${upstream_tag:-none}, fork=${fork_latest:-none})."
+            exit 0
+          fi
+
+          if [ -n "$upstream_tag" ]; then
+            base="$upstream_tag"
+          else
+            base="v$(node -p "require('./package.json').version")"
+          fi
+
+          n=1
+          while git rev-parse --verify --quiet "refs/tags/${base}-sonarta.${n}" >/dev/null; do
+            n=$((n+1))
+          done
+
+          tag="${base}-sonarta.${n}"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "Releasing $tag"
+
+      - name: Tag and dispatch release
+        if: steps.release.outputs.tag != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          tag="${{ steps.release.outputs.tag }}"
+          git tag "$tag"
+          git push origin "$tag"
+
+          for attempt in 1 2 3 4 5; do
+            if gh workflow run release.yml --ref "$tag"; then
+              exit 0
+            fi
+            sleep 3
+          done
+          echo "Failed to dispatch release.yml for $tag" >&2
+          exit 1
