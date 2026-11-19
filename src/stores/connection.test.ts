@@ -23,7 +23,26 @@ function resetConnection() {
 describe('connection session', () => {
   afterEach(() => {
     vi.restoreAllMocks()
+    vi.unstubAllGlobals()
     resetConnection()
+  })
+
+  it('boots and assigns a fresh ID on reconnect over plain LAN HTTP', async () => {
+    const origin = 'http://192.168.1.3:3000'
+    vi.stubGlobal('window', { location: new URL(origin) })
+    vi.stubGlobal('crypto', { getRandomValues: crypto.getRandomValues.bind(crypto) })
+    vi.spyOn(axios, 'get').mockResolvedValue(gowaOk)
+
+    await useConnection.getState().boot()
+    const { connectionId } = useConnection.getState()
+    expect(useConnection.getState()).toMatchObject({
+      status: 'connected',
+      baseUrl: origin,
+      connectionId: expect.any(String),
+    })
+
+    await expect(useConnection.getState().connect(origin)).resolves.toBe('ok')
+    expect(useConnection.getState().connectionId).not.toBe(connectionId)
   })
 
   it('does not probe a remote HTTP server when credentials would be sent in cleartext', async () => {
