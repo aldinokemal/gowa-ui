@@ -3,23 +3,104 @@ name: Release
 on:
   push:
     tags: ['v*']
+  schedule:
+    - cron: '17 0 * * *'
   workflow_dispatch:
+    inputs:
+      check_schedule:
+        description: Preview the daily release decision
+        type: boolean
+        default: false
 
 permissions:
-  contents: write
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
 
 jobs:
-  release:
+  plan:
+    if: github.event_name == 'schedule' || inputs.check_schedule
     runs-on: ubuntu-latest
+    outputs:
+      mode: ${{ steps.plan.outputs.mode }}
+      ref: ${{ steps.plan.outputs.ref }}
+      tag: ${{ steps.plan.outputs.tag }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 0
+      - name: Plan a minor release
+        id: plan
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          stable='^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'
+          tag="$(git tag --sort=-version:refname | awk -v pattern="$stable" '$0 ~ pattern && !found++ { print }')"
+          published="$(gh api "repos/$GITHUB_REPOSITORY/releases/latest" --jq .tag_name)"
+          [[ "$published" =~ $stable && "$tag" =~ $stable ]]
+          git merge-base --is-ancestor "$published" HEAD
+          git merge-base --is-ancestor "$tag" HEAD
+          git merge-base --is-ancestor "$published" "$tag"
+
+          if [[ "$tag" != "$published" ]]; then
+            latest="$(gh release list --limit 100 --json tagName,isDraft --jq 'map(select(.isDraft | not) | .tagName) | .[]')"
+            if grep -Fxq "$tag" <<< "$latest"; then
+              echo "Newest version tag differs from the latest published release." >&2
+              exit 1
+            fi
+            ref="$(git rev-parse "$tag^{commit}")"
+            mode=retry
+          elif [[ "$(git rev-parse "$tag^{commit}")" == "$(git rev-parse HEAD)" ]]; then
+            echo "No commits since $tag."
+            exit 0
+          else
+            [[ "$(node -p 'require("./package.json").version')" == "${tag#v}" ]]
+            [[ "$tag" =~ $stable ]]
+            tag="v${BASH_REMATCH[1]}.$((BASH_REMATCH[2] + 1)).0"
+            ref="$(git rev-parse HEAD)"
+            mode=bump
+          fi
+          printf 'mode=%s\nref=%s\ntag=%s\n' "$mode" "$ref" "$tag" >> "$GITHUB_OUTPUT"
+          echo "Daily release decision: $mode $tag ($ref)"
+
+  release:
+    needs: plan
+    if: >-
+      ${{ !cancelled() && !inputs.check_schedule &&
+          ((github.event_name != 'schedule' && needs.plan.result == 'skipped') ||
+           (needs.plan.result == 'success' && needs.plan.outputs.mode != '')) }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      ref: ${{ steps.version.outputs.ref }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.plan.outputs.ref || github.sha }}
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
+      - name: Set the scheduled release version
+        if: github.event_name == 'schedule'
+        env:
+          MODE: ${{ needs.plan.outputs.mode }}
+          TAG: ${{ needs.plan.outputs.tag }}
+        run: |
+          if [[ "$MODE" == bump ]]; then
+            npm version minor --no-git-tag-version --ignore-scripts
+          fi
+          test "$(node -p 'require("./package.json").version')" = "${TAG#v}"
       - run: npm ci
       - run: npm run typecheck
       - run: npm run lint
+      - if: github.event_name == 'schedule'
+        run: npm run test
       - run: npm run build
       - name: Assert single-file build
         run: |
@@ -29,8 +110,24 @@ jobs:
         run: |
           cp dist/index.html dist/gowa-ui.html
           cd dist && shasum -a 256 gowa-ui.html > gowa-ui.html.sha256
+      - name: Push the scheduled release commit and tag
+        if: github.event_name == 'schedule'
+        id: version
+        env:
+          MODE: ${{ needs.plan.outputs.mode }}
+          TAG: ${{ needs.plan.outputs.tag }}
+          BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          if [[ "$MODE" == bump ]]; then
+            git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
+              commit -m "chore: release $TAG" -- package.json package-lock.json
+            git tag "$TAG"
+            git push --atomic origin "HEAD:refs/heads/$BRANCH" "refs/tags/$TAG"
+          fi
+          echo "ref=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
       - uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ needs.plan.outputs.tag }}
           files: |
             dist/gowa-ui.html
             dist/gowa-ui.html.sha256
@@ -39,7 +136,7 @@ jobs:
   pages:
     # Optional: requires Pages to be enabled (Settings → Pages → Source: GitHub Actions).
     # Non-blocking so releases stay green when Pages is off.
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'schedule'
     needs: release
     continue-on-error: true
     runs-on: ubuntu-latest
@@ -51,6 +148,8 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.release.outputs.ref || github.sha }}
       - uses: actions/setup-node@v4
         with:
           node-version: 22
