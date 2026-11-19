@@ -95,7 +95,8 @@ export const useConnection = create<ConnectionState>()(
         discardPrivateCache()
         set({
           ...next,
-          connectionId: crypto.randomUUID(),
+          // getRandomValues is also available when the dashboard is served over LAN HTTP.
+          connectionId: crypto.getRandomValues(new Uint32Array(4)).join('-'),
           status: 'connected',
         })
       }
